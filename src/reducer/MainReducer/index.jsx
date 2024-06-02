@@ -1,6 +1,8 @@
 import {
-  SET_ALLOW_COOKIES,
+  SET_AUTO_UPDATE,
+  SET_FILES,
   SET_PAGE_INDEX,
+  SET_QUALITY,
   SET_THEME_TYPE,
 } from "./Actions/ActionTypes/index.js";
 
@@ -17,11 +19,21 @@ const MainReducer = (state, action) => {
         ...state,
         themeType: action.payload,
       };
-    case SET_ALLOW_COOKIES:
-      localStorage.allowCookies = action.payload;
+    case SET_FILES:
       return {
         ...state,
-        allowCookies: action.payload,
+        files: action.payload,
+      };
+    case SET_QUALITY:
+      return {
+        ...state,
+        quality: action.payload,
+      };
+    case SET_AUTO_UPDATE:
+      localStorage.autoUpdate = action.payload;
+      return {
+        ...state,
+        autoUpdate: action.payload,
       };
     default:
       throw new Error();

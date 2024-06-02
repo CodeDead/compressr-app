@@ -4,29 +4,19 @@ import { Accordion, Container, Title } from "@mantine/core";
 import { MainContext } from "../../context/MainContextProvider/index.jsx";
 import { setPageIndex } from "../../reducer/MainReducer/Actions/index.js";
 import AboutCard from "../../components/AboutCard/index.jsx";
-import ReactGA from "react-ga4";
 
 const About = () => {
-  const [state, d1] = useContext(MainContext);
-  const { allowCookies } = state;
+  const [, d1] = useContext(MainContext);
 
   useEffect(() => {
     d1(setPageIndex(1));
     document.title = "About | Compressr";
   }, []);
 
-  if (allowCookies) {
-    ReactGA.send({
-      hitType: "pageview",
-      page: "/about",
-      title: "About | Compressr",
-    });
-  }
-
   return (
-    <Container>
-      <AboutCard className={classes.inner + " card"} />
-      <Container size="sm" className={classes.wrapper}>
+    <Container size="sm">
+      <AboutCard />
+      <Container className={classes.wrapper}>
         <Title ta="center" className={classes.title}>
           Frequently Asked Questions
         </Title>
@@ -62,22 +52,21 @@ const About = () => {
 
           <Accordion.Item className={classes.item} value="credit-card">
             <Accordion.Control>
-              Can I use this tool for free without any limitations?
+              Can I use this tool without any limitations?
             </Accordion.Control>
             <Accordion.Panel>
-              Yes! You can use this tool for free without any limitations.
+              Yes! You can use this tool without any limitations.
             </Accordion.Panel>
           </Accordion.Item>
 
           <Accordion.Item className={classes.item} value="payment">
             <Accordion.Control>
-              What is the maximum file size I can upload?
+              What is the maximum file size I can compress?
             </Accordion.Control>
             <Accordion.Panel>
-              There is no maximum file size since the compression is done on
-              your own device. If you have a very large image, the compression
-              process might take a while. We&apos;re currently working on a
-              solution to make this process faster.
+              The maximum file size depends on your hardware. If you want to
+              compress a very large image, or if you are processing a lot of
+              images, the compression process might take a while.
             </Accordion.Panel>
           </Accordion.Item>
         </Accordion>

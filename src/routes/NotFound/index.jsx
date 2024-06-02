@@ -2,14 +2,12 @@ import React, { useContext, useEffect } from "react";
 import { Title, Text, Button, Container, Group } from "@mantine/core";
 import classes from "./notfound.module.css";
 import { useNavigate } from "react-router-dom";
-import ReactGA from "react-ga4";
 import { MainContext } from "../../context/MainContextProvider/index.jsx";
+import { setPageIndex } from "../../reducer/MainReducer/Actions/index.js";
 
 const NotFound = () => {
-  const [state] = useContext(MainContext);
+  const [, d1] = useContext(MainContext);
   const navigate = useNavigate();
-
-  const { allowCookies } = state;
 
   /**
    * Go to the home page
@@ -18,16 +16,9 @@ const NotFound = () => {
     navigate("/");
   };
 
-  if (allowCookies) {
-    ReactGA.send({
-      hitType: "pageview",
-      page: "/not-found",
-      title: "Not Found | Compressr",
-    });
-  }
-
   useEffect(() => {
     document.title = "Not Found | Compressr";
+    d1(setPageIndex(-1));
   }, []);
 
   return (

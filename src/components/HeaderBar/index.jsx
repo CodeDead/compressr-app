@@ -1,162 +1,75 @@
 import React, { useContext } from "react";
 import {
-  Container,
-  Group,
-  Burger,
-  Title,
-  useMantineColorScheme,
+  Center,
   Tooltip,
-  Drawer,
-  ScrollArea,
-  Divider,
+  UnstyledButton,
+  Stack,
   rem,
+  Image,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import {
+  IconHome2,
+  IconKey,
+  IconSettings,
+  IconLogout,
+  IconInfoCircle,
+} from "@tabler/icons-react";
 import classes from "./headerbar.module.css";
-import { ActionIcon } from "@mantine/core";
-import { IconSun, IconSunOff } from "@tabler/icons-react";
-import { useNavigate } from "react-router-dom";
-import { setThemeType } from "../../reducer/MainReducer/Actions/index.js";
 import { MainContext } from "../../context/MainContextProvider/index.jsx";
+import { useNavigate } from "react-router-dom";
+
+const NavbarLink = ({ icon: Icon, label, active, onClick }) => {
+  return (
+    <Tooltip label={label} position="right" transitionProps={{ duration: 0 }}>
+      <UnstyledButton
+        onClick={onClick}
+        className={classes.link}
+        data-active={active || undefined}
+      >
+        <Icon style={{ width: rem(20), height: rem(20) }} stroke={1.5} />
+      </UnstyledButton>
+    </Tooltip>
+  );
+};
+
+const linkData = [
+  { icon: IconHome2, label: "Home", path: "/" },
+  { icon: IconInfoCircle, label: "About", path: "/about" },
+  { icon: IconSettings, label: "Settings", path: "/settings" },
+];
 
 const HeaderBar = () => {
-  const { colorScheme, setColorScheme } = useMantineColorScheme();
-  const [opened, { toggle }] = useDisclosure(false);
-  const [state, d1] = useContext(MainContext);
-  const navigate = useNavigate();
-
+  const [state] = useContext(MainContext);
   const { pageIndex } = state;
 
-  /**
-   * Open the privacy policy in a new tab
-   */
-  const openPrivacy = () => {
-    window.open("https://codedead.com/privacy", "_blank");
-  };
+  const navigate = useNavigate();
 
-  /**
-   * Open the contact page in a new tab
-   */
-  const openContact = () => {
-    window.open("https://codedead.com/contact", "_blank");
-  };
-
-  /**
-   * Change the color scheme
-   */
-  const changeTheme = () => {
-    const newTheme = colorScheme === "dark" ? "light" : "dark";
-
-    d1(setThemeType(newTheme));
-    setColorScheme(newTheme);
-  };
-
-  /**
-   * Click the scroll link
-   * @param event The event argument
-   * @param link The link to navigate to
-   */
-  const clickScrollLink = (event, link) => {
-    event.preventDefault();
-
-    toggle();
-    navigate(link);
-  };
+  const links = linkData.map((link, index) => (
+    <NavbarLink
+      {...link}
+      key={link.label}
+      active={index === pageIndex}
+      onClick={() => navigate(link.path)}
+    />
+  ));
 
   return (
-    <Container size="xl" className={classes.inner}>
-      <Title
-        order={1}
-        style={{ cursor: "pointer" }}
-        onClick={() => navigate("/")}
-      >
-        Compressr
-      </Title>
-      <Group gap={5} visibleFrom="xs">
-        <a
-          href={"/"}
-          className={classes.link}
-          data-active={pageIndex === 0 ? true : undefined}
-          onClick={(event) => {
-            clickScrollLink(event, "/");
-          }}
-        >
-          Home
-        </a>
-        <a
-          href={"/about"}
-          className={classes.link}
-          data-active={pageIndex === 1 ? true : undefined}
-          onClick={(event) => {
-            clickScrollLink(event, "/about");
-          }}
-        >
-          About
-        </a>
-        <a
-          key="privacy"
-          href={"#"}
-          className={classes.link}
-          onClick={openPrivacy}
-        >
-          Privacy
-        </a>
-        <a
-          key="contact"
-          href={"#"}
-          className={classes.link}
-          onClick={openContact}
-        >
-          Contact
-        </a>
-      </Group>
-      <Tooltip label={colorScheme === "dark" ? "Light" : "Dark"}>
-        <ActionIcon aria-label="Theme" variant="subtle" onClick={changeTheme}>
-          {colorScheme === "dark" ? (
-            <IconSunOff style={{ width: "70%", height: "70%" }} stroke={1.5} />
-          ) : (
-            <IconSun style={{ width: "70%", height: "70%" }} stroke={1.5} />
-          )}
-        </ActionIcon>
-      </Tooltip>
+    <nav className={classes.navbar}>
+      <Center>
+        <Image src="/favicon.ico" width={30} height={30} />
+      </Center>
 
-      <Burger opened={opened} onClick={toggle} hiddenFrom="xs" size="sm" />
-      <Drawer
-        opened={opened}
-        onClose={() => toggle()}
-        size="100%"
-        padding="md"
-        title="Navigation"
-        hiddenFrom="sm"
-        zIndex={1000000}
-      >
-        <ScrollArea h={`calc(100vh - ${rem(80)})`} mx="-md">
-          <Divider my="sm" />
-          <a
-            href="/"
-            className={classes.link}
-            data-active={pageIndex === 0 ? true : undefined}
-            onClick={(e) => clickScrollLink(e, "/")}
-          >
-            Home
-          </a>
-          <a
-            href="/about"
-            className={classes.link}
-            data-active={pageIndex === 1 ? true : undefined}
-            onClick={(e) => clickScrollLink(e, "/about")}
-          >
-            About
-          </a>
-          <a href="#" className={classes.link} onClick={openContact}>
-            Contact
-          </a>
-          <a href="#" className={classes.link} onClick={openPrivacy}>
-            Privacy
-          </a>
-        </ScrollArea>
-      </Drawer>
-    </Container>
+      <div className={classes.navbarMain}>
+        <Stack justify="center" gap={0}>
+          {links}
+        </Stack>
+      </div>
+
+      <Stack justify="center" gap={0}>
+        <NavbarLink icon={IconKey} label="License" />
+        <NavbarLink icon={IconLogout} label="Logout" />
+      </Stack>
+    </nav>
   );
 };
 

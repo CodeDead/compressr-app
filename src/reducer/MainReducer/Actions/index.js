@@ -1,6 +1,8 @@
 import {
-  SET_ALLOW_COOKIES,
+  SET_AUTO_UPDATE,
+  SET_FILES,
   SET_PAGE_INDEX,
+  SET_QUALITY,
   SET_THEME_TYPE,
 } from "./ActionTypes/index.js";
 
@@ -14,7 +16,17 @@ export const setThemeType = (type) => ({
   payload: type,
 });
 
-export const setAllowCookies = (allow) => ({
-  type: SET_ALLOW_COOKIES,
-  payload: allow,
+export const setFiles = (files) => ({
+  type: SET_FILES,
+  payload: files,
+});
+
+export const setQuality = (quality) => ({
+  type: SET_QUALITY,
+  payload: quality,
+});
+
+export const setAutoUpdate = (autoUpdate) => ({
+  type: SET_AUTO_UPDATE,
+  payload: autoUpdate,
 });

@@ -1,23 +1,21 @@
 import React, { useContext, useEffect, useState } from "react";
 import DropzoneButton from "../../components/DropzoneButton/index.jsx";
-import { Container, Button, Text } from "@mantine/core";
+import { Container, Button, Text, Center, Paper } from "@mantine/core";
 import { MainContext } from "../../context/MainContextProvider/index.jsx";
-import { setPageIndex } from "../../reducer/MainReducer/Actions/index.js";
-import CompressHeroHeader from "../../components/CompressHeroHeader/index.jsx";
+import {
+  setFiles,
+  setPageIndex,
+  setQuality,
+} from "../../reducer/MainReducer/Actions/index.js";
 import CompressSlider from "../../components/CompressSlider/index.jsx";
-import classes from "./home.module.css";
 import { IconCircleLetterX, IconSword } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
-import Compressor from "compressorjs";
-import ReactGA from "react-ga4";
 
 const Home = () => {
-  const [files, setFiles] = useState(null);
   const [popOverOpen, setpopOverOpen] = useState(false);
-  const [quality, setQuality] = useState(65);
 
   const [state, d1] = useContext(MainContext);
-  const { allowCookies } = state;
+  const { quality, files } = state;
 
   /**
    * Change the popover open state
@@ -31,7 +29,15 @@ const Home = () => {
    * @param files The new array of files
    */
   const changeFiles = (files) => {
-    setFiles(files);
+    d1(setFiles(files));
+  };
+
+  /**
+   * Change the compression quality level
+   * @param quality The new compression quality level
+   */
+  const changeQuality = (quality) => {
+    d1(setQuality(quality));
   };
 
   /**
@@ -41,23 +47,9 @@ const Home = () => {
     if (!files) return;
 
     let error = null;
+    // eslint-disable-next-line no-unused-vars
     for (const c of files) {
-      new Compressor(c, {
-        quality: quality / 100,
-        success: (result) => {
-          const url = URL.createObjectURL(result);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = c.name;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        },
-        error: (err) => {
-          error = err;
-        },
-      });
+      // TODO
     }
 
     if (!error) {
@@ -66,7 +58,6 @@ const Home = () => {
         message: "Hey there, your images were compressed successfully! 🤥",
       });
     } else {
-      console.log(error);
       notifications.show({
         title: "Error",
         message: "The image could not be compressed. Please try again. 😢",
@@ -79,53 +70,42 @@ const Home = () => {
     document.title = "Home | Compressr";
   }, []);
 
-  if (allowCookies) {
-    ReactGA.send({
-      hitType: "pageview",
-      page: "/",
-      title: "Home | Compressr",
-    });
-  }
-
   return (
-    <Container size="md">
-      {files ? (
-        <Container className={classes.inner}>
-          <Text size="md" mt="xl" mb="xl">
-            Quality
-          </Text>
-          <CompressSlider value={quality} onChange={setQuality} />
-          <Button
-            aria-label="Cancel"
-            style={{ float: "left" }}
-            mt="xl"
-            leftSection={<IconCircleLetterX size={14} />}
-            onClick={() => {
-              setFiles(null);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            aria-label="Compress"
-            style={{ float: "right" }}
-            mt="xl"
-            leftSection={<IconSword size={14} />}
-            onClick={compressFiles}
-          >
-            Compress
-          </Button>
-        </Container>
-      ) : (
-        <>
+    <Container style={{ height: "100vh" }}>
+      <Center style={{ width: "100%", height: "100%" }}>
+        {files ? (
+          <Paper p="xl" style={{ width: "100%" }}>
+            <Text size="md">Quality</Text>
+            <CompressSlider value={quality} onChange={changeQuality} />
+            <Button
+              aria-label="Cancel"
+              style={{ float: "left" }}
+              mt="xl"
+              leftSection={<IconCircleLetterX size={14} />}
+              onClick={() => {
+                d1(setFiles(null));
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              aria-label="Compress"
+              style={{ float: "right" }}
+              mt="xl"
+              leftSection={<IconSword size={14} />}
+              onClick={compressFiles}
+            >
+              Compress
+            </Button>
+          </Paper>
+        ) : (
           <DropzoneButton
             popOverOpen={popOverOpen}
             setPopOverOpen={changePopOverOpen}
             changeFiles={changeFiles}
           />
-          <CompressHeroHeader changePopOverOpen={changePopOverOpen} />
-        </>
-      )}
+        )}
+      </Center>
     </Container>
   );
 };

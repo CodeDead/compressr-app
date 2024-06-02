@@ -58,10 +58,7 @@ const DropzoneButton = ({ popOverOpen, setPopOverOpen, changeFiles }) => {
 
           <Text ta="center" fw={700} fz="lg" mt="xl">
             <Dropzone.Accept>Drop files here</Dropzone.Accept>
-            <Dropzone.Idle>Select an image to compress</Dropzone.Idle>
-          </Text>
-          <Text ta="center" fz="sm" mt="xs" c="dimmed">
-            Drag&apos;n&apos;drop images here to compress.
+            <Dropzone.Idle>Select image(s) to compress</Dropzone.Idle>
           </Text>
         </div>
       </Dropzone>

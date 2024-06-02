@@ -1,41 +1,73 @@
 import React from "react";
-import { Card, Avatar, Text, Group, Button } from "@mantine/core";
+import {
+  Card,
+  Avatar,
+  Text,
+  Group,
+  Button,
+  ActionIcon,
+  rem,
+} from "@mantine/core";
 import classes from "./aboutcard.module.css";
+import {
+  IconBrandGithub,
+  IconBrandMastodon,
+  IconBrandX,
+  IconWorldWww,
+} from "@tabler/icons-react";
+import pkg from "../../../package.json";
+import { invoke } from "@tauri-apps/api";
+import { notifications } from "@mantine/notifications";
 
-const stats = [
-  { value: "100K+", label: "Visitors" },
-  { value: "9", label: "Donators" },
-  { value: "11", label: "Tools" },
-];
-
-const AboutCard = ({ className }) => {
-  const items = stats.map((stat) => (
-    <div key={stat.label}>
-      <Text ta="center" fz="lg" fw={500}>
-        {stat.value}
-      </Text>
-      <Text ta="center" fz="sm" c="dimmed" lh={1}>
-        {stat.label}
-      </Text>
-    </div>
-  ));
-
+const AboutCard = () => {
   /**
-   * Open the donation page in a new tab
+   * Show an error notification when a link could not be opened
    */
-  const openDonate = () => {
-    window.open("https://codedead.com/donate", "_blank");
+  const showLinkError = () => {
+    notifications.show({
+      title: "Error",
+      message: "The link could not be opened. Please try again. 😢",
+    });
   };
 
   /**
    * Open the CodeDead website in a new tab
    */
   const openCodeDead = () => {
-    window.open("https://codedead.com/", "_blank");
+    invoke("open", { site: "https://codedead.com/" }).catch(() => {
+      showLinkError();
+    });
+  };
+
+  /**
+   * Open the X.com website in a new tab
+   */
+  const openX = () => {
+    invoke("open", { site: "https://x.com/C0DEDEAD" }).catch(() => {
+      showLinkError();
+    });
+  };
+
+  /**
+   * Open the Github profile in a new tab
+   */
+  const openGithub = () => {
+    invoke("open", { site: "https://github.com/CodeDead/" }).catch(() => {
+      showLinkError();
+    });
+  };
+
+  /**
+   * Open the Mastodon profile in a new tab
+   */
+  const openMastodon = () => {
+    invoke("open", { site: "https://mstdn.social/@CodeDead" }).catch(() => {
+      showLinkError();
+    });
   };
 
   return (
-    <Card withBorder radius="md" className={className}>
+    <Card withBorder radius="md" className={classes.card} mt="xl">
       <Card.Section
         h={140}
         onClick={openCodeDead}
@@ -67,25 +99,71 @@ const AboutCard = ({ className }) => {
       >
         CodeDead
       </Text>
-      <Text ta="center" fz="sm" c="dimmed">
-        If you like this tool, consider donating.
+      <Text mt="sm" ta="center" fz="sm" c="dimmed">
+        Compressr, a CodeDead product, was made with ❤️ by DeadLine.
       </Text>
       <Text ta="center" fz="sm" c="dimmed">
-        Made with ❤️ by CodeDead.
+        Version: v{pkg.version}
       </Text>
-      <Group mt="md" justify="center" gap={30}>
-        {items}
+      <Group mt="sm" gap={1} justify="center">
+        <ActionIcon
+          aria-label="CodeDead"
+          size="lg"
+          color="gray"
+          variant="subtle"
+          onClick={openCodeDead}
+        >
+          <IconWorldWww
+            style={{ width: rem(18), height: rem(18) }}
+            stroke={1.5}
+          />
+        </ActionIcon>
+        <ActionIcon
+          aria-label="X"
+          size="lg"
+          color="gray"
+          variant="subtle"
+          onClick={openX}
+        >
+          <IconBrandX
+            style={{ width: rem(18), height: rem(18) }}
+            stroke={1.5}
+          />
+        </ActionIcon>
+        <ActionIcon
+          aria-label="Mastodon"
+          size="lg"
+          color="gray"
+          variant="subtle"
+          onClick={openMastodon}
+        >
+          <IconBrandMastodon
+            style={{ width: rem(18), height: rem(18) }}
+            stroke={1.5}
+          />
+        </ActionIcon>
+        <ActionIcon
+          aria-label="Github"
+          size="lg"
+          color="gray"
+          variant="subtle"
+          onClick={openGithub}
+        >
+          <IconBrandGithub
+            style={{ width: rem(18), height: rem(18) }}
+            stroke={1.5}
+          />
+        </ActionIcon>
       </Group>
       <Button
-        aria-label="Donate"
+        aria-label="Update"
         fullWidth
         radius="md"
-        mt="xl"
+        mt="md"
         size="md"
         variant="default"
-        onClick={openDonate}
       >
-        Donate
+        Check for updates
       </Button>
     </Card>
   );
