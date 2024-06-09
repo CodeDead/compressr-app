@@ -2,7 +2,6 @@ import {
   SET_AUTO_UPDATE,
   SET_FILES,
   SET_MAX_HEIGHT,
-  SET_MAX_SIZE_ENABLED,
   SET_MAX_WIDTH,
   SET_PAGE_INDEX,
   SET_QUALITY,
@@ -42,9 +41,4 @@ export const setMaxHeight = (maxHeight) => ({
 export const setMaxWidth = (maxWidth) => ({
   type: SET_MAX_WIDTH,
   payload: maxWidth,
-});
-
-export const setMaxSizeEnabled = (enabled) => ({
-  type: SET_MAX_SIZE_ENABLED,
-  payload: enabled,
 });

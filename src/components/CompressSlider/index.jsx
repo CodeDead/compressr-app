@@ -7,6 +7,7 @@ const CompressSlider = ({ value, onChange }) => {
       value={value}
       onChange={onChange}
       label={(value) => `${value}%`}
+      mb="md"
       marks={[
         { value: 0, label: "0%" },
         { value: 20, label: "20%" },

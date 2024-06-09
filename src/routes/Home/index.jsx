@@ -8,10 +8,13 @@ import {
   Stepper,
   Button,
   ScrollArea,
+  NumberInput,
 } from "@mantine/core";
 import { MainContext } from "../../context/MainContextProvider/index.jsx";
 import {
   setFiles,
+  setMaxHeight,
+  setMaxWidth,
   setPageIndex,
   setQuality,
 } from "../../reducer/MainReducer/Actions/index.js";
@@ -26,7 +29,7 @@ const Home = () => {
   const [active, setActive] = useState(0);
 
   const [state, d1] = useContext(MainContext);
-  const { quality, files } = state;
+  const { quality, files, maxWidth, maxHeight } = state;
 
   /**
    * Change the popover open state
@@ -54,6 +57,14 @@ const Home = () => {
    */
   const changeQuality = (quality) => {
     d1(setQuality(quality));
+  };
+
+  const changeMaxWidth = (maxWidth) => {
+    d1(setMaxWidth(maxWidth));
+  };
+
+  const changeMaxHeight = (maxHeight) => {
+    d1(setMaxHeight(maxHeight));
   };
 
   /**
@@ -124,6 +135,24 @@ const Home = () => {
           <Paper p="xl" style={{ width: "100%" }}>
             <Text size="md">Quality</Text>
             <CompressSlider value={quality} onChange={changeQuality} />
+            <NumberInput
+              mt="xl"
+              label="Maximum width"
+              min={1}
+              value={maxWidth}
+              onChange={changeMaxWidth}
+              description="Resize an image if it is larger than the specified width in pixels"
+              placeholder="Leave empty to disable"
+            />
+            <NumberInput
+              mt="sm"
+              label="Maximum height"
+              min={1}
+              value={maxHeight}
+              onChange={changeMaxHeight}
+              description="Resize an image if it is larger than the specified height in pixels"
+              placeholder="Leave empty to disable"
+            />
           </Paper>
         ) : null}
       </Center>

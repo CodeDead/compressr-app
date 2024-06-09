@@ -2,7 +2,6 @@ import {
   SET_AUTO_UPDATE,
   SET_FILES,
   SET_MAX_HEIGHT,
-  SET_MAX_SIZE_ENABLED,
   SET_MAX_WIDTH,
   SET_PAGE_INDEX,
   SET_QUALITY,
@@ -41,11 +40,6 @@ const MainReducer = (state, action) => {
       return {
         ...state,
         maxHeight: action.payload,
-      };
-    case SET_MAX_SIZE_ENABLED:
-      return {
-        ...state,
-        maxSizeEnabled: action.payload,
       };
     case SET_AUTO_UPDATE:
       localStorage.autoUpdate = action.payload;
