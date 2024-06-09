@@ -1529,15 +1529,15 @@ __metadata:
     "@vitejs/plugin-react": "npm:^4.3.0"
     eslint: "npm:^9.4.0"
     eslint-plugin-react: "npm:^7.34.2"
-    globals: "npm:^15.3.0"
+    globals: "npm:^15.4.0"
     postcss: "npm:^8.4.38"
     postcss-preset-mantine: "npm:^1.15.0"
     postcss-simple-vars: "npm:^7.0.1"
-    prettier: "npm:^3.3.0"
+    prettier: "npm:^3.3.1"
     react: "npm:^18.3.1"
     react-dom: "npm:^18.3.1"
     react-router-dom: "npm:^6.23.1"
-    vite: "npm:^5.2.12"
+    vite: "npm:^5.2.13"
     vite-plugin-eslint: "npm:^1.8.1"
   languageName: unknown
   linkType: soft
@@ -2375,10 +2375,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"globals@npm:^15.3.0":
-  version: 15.3.0
-  resolution: "globals@npm:15.3.0"
-  checksum: 10c0/edbef1c528185d02636ed6d72a1688168b922d6176031904386214f8b59d893f1d0a28da519b95665f557d366b17ea1affb9f433ea451e7372e2808fb31079d7
+"globals@npm:^15.4.0":
+  version: 15.4.0
+  resolution: "globals@npm:15.4.0"
+  checksum: 10c0/19041b8fd49deb154e1cb706c82756ab7184c8ae3495aab183efcad9edd1b6320cc54af1a9110d8699245bef124834b004a8156ca988ba7814c25ec71a43f6a4
   languageName: node
   linkType: hard
 
@@ -3469,12 +3469,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:^3.3.0":
-  version: 3.3.0
-  resolution: "prettier@npm:3.3.0"
+"prettier@npm:^3.3.1":
+  version: 3.3.1
+  resolution: "prettier@npm:3.3.1"
   bin:
     prettier: bin/prettier.cjs
-  checksum: 10c0/d033c356320aa2e468bf29c931b094ac730d2f4defd5eb2989d8589313dec901d2fc866e3788f3d161e420b142ea4ec3dda535dbe0169ef4d0026397a68ba9cf
+  checksum: 10c0/c25a709c9f0be670dc6bcb190b622347e1dbeb6c3e7df8b0711724cb64d8647c60b839937a4df4df18e9cfb556c2b08ca9d24d9645eb5488a7fc032a2c4d5cb3
   languageName: node
   linkType: hard
 
@@ -4419,9 +4419,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vite@npm:^5.2.12":
-  version: 5.2.12
-  resolution: "vite@npm:5.2.12"
+"vite@npm:^5.2.13":
+  version: 5.2.13
+  resolution: "vite@npm:5.2.13"
   dependencies:
     esbuild: "npm:^0.20.1"
     fsevents: "npm:~2.3.3"
@@ -4455,7 +4455,7 @@ __metadata:
       optional: true
   bin:
     vite: bin/vite.js
-  checksum: 10c0/f03fdfc320adea3397df3e327029fd875f8220779f679ab183a3a994e8788b4ce531fee28f830361fb274f3cf08ed9adb9429496ecefdc3faf535b38da7ea8b1
+  checksum: 10c0/f7a99da71884e69cc581dcfb43d73c8d56d73b9668d6980131603c544d6323c6003a20f376531dc0cfcf36bf5009bc465f89e6c5f8bd9d22868987aba4e4af1b
   languageName: node
   linkType: hard
 

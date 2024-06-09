@@ -1,6 +1,14 @@
 import React, { useContext, useEffect, useState } from "react";
 import DropzoneButton from "../../components/DropzoneButton/index.jsx";
-import { Container, Button, Text, Center, Paper } from "@mantine/core";
+import {
+  Container,
+  Text,
+  Center,
+  Paper,
+  Stepper,
+  Button,
+  ScrollArea,
+} from "@mantine/core";
 import { MainContext } from "../../context/MainContextProvider/index.jsx";
 import {
   setFiles,
@@ -8,11 +16,14 @@ import {
   setQuality,
 } from "../../reducer/MainReducer/Actions/index.js";
 import CompressSlider from "../../components/CompressSlider/index.jsx";
-import { IconCircleLetterX, IconSword } from "@tabler/icons-react";
+import { IconCircleX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
+import FileTable from "../../components/FileTable/index.jsx";
 
 const Home = () => {
+  const [hasSelectedFiles, setHasSelectedFiles] = useState(false);
   const [popOverOpen, setpopOverOpen] = useState(false);
+  const [active, setActive] = useState(0);
 
   const [state, d1] = useContext(MainContext);
   const { quality, files } = state;
@@ -30,6 +41,11 @@ const Home = () => {
    */
   const changeFiles = (files) => {
     d1(setFiles(files));
+
+    if (!hasSelectedFiles && files) {
+      setHasSelectedFiles(true);
+      setActive(1);
+    }
   };
 
   /**
@@ -41,8 +57,21 @@ const Home = () => {
   };
 
   /**
+   * Remove a file from the files array
+   * @param file The file to remove
+   */
+  const removeFile = (file) => {
+    let newFiles = files.filter((f) => f !== file);
+    if (newFiles.length === 0) {
+      newFiles = null;
+    }
+    d1(setFiles(newFiles));
+  };
+
+  /**
    * Compress the files
    */
+  // eslint-disable-next-line no-unused-vars
   const compressFiles = () => {
     if (!files) return;
 
@@ -72,40 +101,45 @@ const Home = () => {
 
   return (
     <Container style={{ height: "100vh" }}>
-      <Center style={{ width: "100%", height: "100%" }}>
-        {files ? (
+      <Center style={{ width: "100%", height: "85%" }}>
+        {active === 0 ? (
+          files ? (
+            <Paper p="xl" style={{ width: "100%" }}>
+              <ScrollArea h={250}>
+                <FileTable elements={files} onDelete={removeFile} />
+              </ScrollArea>
+              <Button size="md" mt="md" onClick={() => changeFiles(null)}>
+                Clear
+              </Button>
+            </Paper>
+          ) : (
+            <DropzoneButton
+              popOverOpen={popOverOpen}
+              setPopOverOpen={changePopOverOpen}
+              changeFiles={changeFiles}
+            />
+          )
+        ) : null}
+        {active === 1 ? (
           <Paper p="xl" style={{ width: "100%" }}>
             <Text size="md">Quality</Text>
             <CompressSlider value={quality} onChange={changeQuality} />
-            <Button
-              aria-label="Cancel"
-              style={{ float: "left" }}
-              mt="xl"
-              leftSection={<IconCircleLetterX size={14} />}
-              onClick={() => {
-                d1(setFiles(null));
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              aria-label="Compress"
-              style={{ float: "right" }}
-              mt="xl"
-              leftSection={<IconSword size={14} />}
-              onClick={compressFiles}
-            >
-              Compress
-            </Button>
           </Paper>
-        ) : (
-          <DropzoneButton
-            popOverOpen={popOverOpen}
-            setPopOverOpen={changePopOverOpen}
-            changeFiles={changeFiles}
-          />
-        )}
+        ) : null}
       </Center>
+      <Stepper active={active} onStepClick={setActive}>
+        <Stepper.Step
+          label="Step 1"
+          description="Image(s)"
+          completedIcon={files ? null : <IconCircleX />}
+          color={files ? null : active === 0 ? null : "red"}
+        />
+        <Stepper.Step label="Step 2" description="Options" />
+        <Stepper.Step label="Step 3" description="Compress" />
+        <Stepper.Completed>
+          Completed, click back button to get to previous step
+        </Stepper.Completed>
+      </Stepper>
     </Container>
   );
 };

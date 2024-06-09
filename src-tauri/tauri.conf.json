@@ -12,12 +12,16 @@
   },
   "tauri": {
     "allowlist": {
-      "all": false
+      "all": false,
+      "dialog": {
+        "open": true,
+        "save": true
+      }
     },
     "bundle": {
       "active": true,
-      "category": "DeveloperTool",
-      "copyright": "",
+      "category": "Utility",
+      "copyright": "Copyright © 2024 CodeDead",
       "deb": {
         "depends": []
       },
@@ -29,7 +33,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "identifier": "com.tauri.dev",
+      "identifier": "com.codedead.compressr",
       "longDescription": "",
       "macOS": {
         "entitlements": null,
@@ -39,7 +43,7 @@
         "signingIdentity": null
       },
       "resources": [],
-      "shortDescription": "",
+      "shortDescription": "An image compression tool",
       "targets": "all",
       "windows": {
         "certificateThumbprint": null,

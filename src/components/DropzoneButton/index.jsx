@@ -1,83 +1,77 @@
-import React, { useRef } from "react";
+import React from "react";
 import {
   Text,
   Group,
   Button,
   rem,
-  useMantineTheme,
-  Popover,
+  Container,
+  Paper,
+  Center,
 } from "@mantine/core";
-import { Dropzone, MIME_TYPES } from "@mantine/dropzone";
-import { IconCloudUpload, IconX, IconDownload } from "@tabler/icons-react";
-import classes from "./dropzonebutton.module.css";
+import { IconCloudUpload } from "@tabler/icons-react";
+import { open } from "@tauri-apps/api/dialog";
 
-const DropzoneButton = ({ popOverOpen, setPopOverOpen, changeFiles }) => {
-  const theme = useMantineTheme();
-  const openRef = useRef(null);
+const DropzoneButton = ({ changeFiles }) => {
+  const openDialog = async () => {
+    const selected = await open({
+      multiple: true,
+      filters: [
+        {
+          name: "Image",
+          directory: true,
+          extensions: [
+            "avif",
+            "bmp",
+            "dds",
+            "farbfeld",
+            "gif",
+            "hdr",
+            "ico",
+            "jpeg",
+            "jpg",
+            "exr",
+            "png",
+            "pnm",
+            "qoi",
+            "tga",
+            "tiff",
+            "webp",
+          ],
+        },
+      ],
+    });
+
+    changeFiles(selected);
+  };
 
   return (
-    <div className={classes.wrapper}>
-      <Dropzone
-        openRef={openRef}
-        onDrop={(files) => {
-          changeFiles(files);
-        }}
-        className={classes.dropzone}
-        radius="md"
-        accept={[
-          MIME_TYPES.png,
-          MIME_TYPES.jpeg,
-          MIME_TYPES.svg,
-          MIME_TYPES.gif,
-          MIME_TYPES.webp,
-        ]}
-      >
-        <div style={{ pointerEvents: "none" }}>
+    <Paper>
+      <Container onClick={openDialog}>
+        <div style={{ cursor: "pointer" }}>
           <Group justify="center">
-            <Dropzone.Accept>
-              <IconDownload
-                style={{ width: rem(50), height: rem(50) }}
-                color={theme.colors.blue[6]}
-                stroke={1.5}
-              />
-            </Dropzone.Accept>
-            <Dropzone.Reject>
-              <IconX
-                style={{ width: rem(50), height: rem(50) }}
-                color={theme.colors.red[6]}
-                stroke={1.5}
-              />
-            </Dropzone.Reject>
-            <Dropzone.Idle>
-              <IconCloudUpload
-                style={{ width: rem(50), height: rem(50) }}
-                stroke={1.5}
-              />
-            </Dropzone.Idle>
+            <IconCloudUpload
+              style={{ width: rem(50), height: rem(50) }}
+              onClick={openDialog}
+              stroke={1.5}
+            />
           </Group>
-
           <Text ta="center" fw={700} fz="lg" mt="xl">
-            <Dropzone.Accept>Drop files here</Dropzone.Accept>
-            <Dropzone.Idle>Select image(s) to compress</Dropzone.Idle>
+            Select image(s) to compress
           </Text>
         </div>
-      </Dropzone>
-
-      <Popover opened={popOverOpen} onChange={setPopOverOpen}>
-        <Popover.Target>
-          <Button
-            aria-label="Compress"
-            className={classes.control}
-            size="md"
-            radius="xl"
-            onClick={() => openRef.current?.()}
-          >
-            Compress!
-          </Button>
-        </Popover.Target>
-        <Popover.Dropdown>Select an image to get started!</Popover.Dropdown>
-      </Popover>
-    </div>
+      </Container>
+      <Center>
+        <Button
+          aria-label="Compress"
+          size="md"
+          mt="md"
+          radius="xl"
+          onClick={openDialog}
+        >
+          Get started
+        </Button>
+      </Center>
+    </Paper>
   );
 };
 
