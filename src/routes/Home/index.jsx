@@ -22,6 +22,7 @@ import CompressSlider from "../../components/CompressSlider/index.jsx";
 import { IconCircleX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import FileTable from "../../components/FileTable/index.jsx";
+import { invoke } from "@tauri-apps/api";
 
 const Home = () => {
   const [hasSelectedFiles, setHasSelectedFiles] = useState(false);
@@ -82,25 +83,22 @@ const Home = () => {
   /**
    * Compress the files
    */
-  // eslint-disable-next-line no-unused-vars
   const compressFiles = () => {
     if (!files) return;
 
-    let error = null;
-    // eslint-disable-next-line no-unused-vars
     for (const c of files) {
-      // TODO
-    }
-
-    if (!error) {
-      notifications.show({
-        title: "Success",
-        message: "Hey there, your images were compressed successfully! 🤥",
-      });
-    } else {
-      notifications.show({
-        title: "Error",
-        message: "The image could not be compressed. Please try again. 😢",
+      invoke("compress_image", {
+        path: c,
+        quality: parseFloat(quality),
+        maxWidth: parseFloat(maxWidth ? maxWidth : 0),
+        maxHeight: parseFloat(maxHeight ? maxHeight : 0),
+      }).catch((e) => {
+        notifications.show({
+          title: "Error",
+          message:
+            "The image could not be compressed. Please try again. 😢, error: " +
+            e,
+        });
       });
     }
   };
@@ -153,6 +151,14 @@ const Home = () => {
               description="Resize an image if it is larger than the specified height in pixels"
               placeholder="Leave empty to disable"
             />
+          </Paper>
+        ) : null}
+        {active === 2 ? (
+          <Paper p="xl" style={{ width: "100%" }}>
+            <Text size="md">Compress</Text>
+            <Button size="md" mt="xl" onClick={compressFiles} disabled={!files}>
+              Compress
+            </Button>
           </Paper>
         ) : null}
       </Center>

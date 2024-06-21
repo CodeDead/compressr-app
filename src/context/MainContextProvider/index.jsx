@@ -13,8 +13,8 @@ const initialState = {
   files: null,
   quality: 65,
   autoUpdate,
-  maxWidth: '',
-  maxHeight: '',
+  maxWidth: "",
+  maxHeight: "",
 };
 
 export const MainContext = createContext(initialState);
