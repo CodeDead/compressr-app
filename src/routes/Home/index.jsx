@@ -13,6 +13,7 @@ import {
 } from "@mantine/core";
 import { MainContext } from "../../context/MainContextProvider/index.jsx";
 import {
+  getImagesFromFolder,
   getNumberOfThreads,
   setCompressing,
   setDeleteOriginalImages,
@@ -63,7 +64,7 @@ const Home = () => {
       filters: [
         {
           name: "Image",
-          directory: true,
+          directory: false,
           extensions: [
             "avif",
             "bmp",
@@ -98,6 +99,25 @@ const Home = () => {
     let newFiles = files ? files.concat(filesToAdd) : filesToAdd;
     d1(setFiles(newFiles));
   };
+
+  /**
+   * Add a folder to the files array
+   * @returns {Promise<void>} The selected folder
+   */
+  const addFolder = async () => {
+    let res = await getImagesFromFolder();
+    if (!res || res.length === 0) return;
+
+    let filesToAdd = [];
+    for (const file of res) {
+      if (!files || !files.includes(file)) {
+        filesToAdd.push(file);
+      }
+    }
+
+    let newFiles = files ? files.concat(filesToAdd) : filesToAdd;
+    d1(setFiles(newFiles));
+  }
 
   /**
    * Change the compression quality level
@@ -240,6 +260,7 @@ const Home = () => {
               popOverOpen={popOverOpen}
               setPopOverOpen={changePopOverOpen}
               addFiles={addFiles}
+              addFolder={addFolder}
             />
           )
         ) : null}
