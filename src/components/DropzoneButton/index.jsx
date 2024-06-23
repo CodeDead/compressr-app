@@ -2,15 +2,15 @@ import React from "react";
 import {
   Text,
   Group,
-  Button,
   rem,
   Container,
   Paper,
   Center,
 } from "@mantine/core";
 import { IconCloudUpload } from "@tabler/icons-react";
+import SplitButton from "../SplitButton/index.jsx";
 
-const DropzoneButton = ({ addFiles }) => {
+const DropzoneButton = ({ addFiles, addFolder }) => {
   return (
     <Paper>
       <Container onClick={addFiles}>
@@ -28,15 +28,7 @@ const DropzoneButton = ({ addFiles }) => {
         </div>
       </Container>
       <Center>
-        <Button
-          aria-label="Compress"
-          size="md"
-          mt="md"
-          radius="xl"
-          onClick={addFiles}
-        >
-          Get started
-        </Button>
+        <SplitButton onSelectFiles={addFiles} onSelectFolder={addFolder} />
       </Center>
     </Paper>
   );

@@ -3,6 +3,20 @@ use mozjpeg::{ColorSpace, Compress};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
+/// Compress an image
+/// 
+/// # Arguments
+/// 
+/// * `input_path` - The path to the input image
+/// * `output_path` - The path to the output image
+/// * `quality` - The quality of the compressed image
+/// * `max_width` - The maximum width of the compressed image
+/// * `max_height` - The maximum height of the compressed image
+/// * `delete_original` - Whether to delete the original image
+/// 
+/// # Returns
+/// 
+/// * `Result<(), String>` - An error message if the operation failed
 pub fn process_image(
     input_path: &str,
     output_path: &str,

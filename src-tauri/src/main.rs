@@ -4,19 +4,31 @@
 mod image_processor;
 
 use rayon::prelude::*;
+use std::path::Path;
 use std::thread::available_parallelism;
+use walkdir::WalkDir;
 
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             open,
             compress_image,
-            get_number_of_threads
+            get_number_of_threads,
+            get_images_from_directory
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
+/// Open a website in the default browser
+///
+/// # Arguments
+///
+/// * `site` - The website to open
+///
+/// # Returns
+///
+/// * `Result<(), String>` - An error message if the operation failed
 #[tauri::command]
 fn open(site: &str) -> Result<(), String> {
     match open::that(site) {
@@ -25,6 +37,20 @@ fn open(site: &str) -> Result<(), String> {
     }
 }
 
+/// Compress images
+///
+/// # Arguments
+///
+/// * `files` - A list of image paths
+/// * `quality` - The quality of the compressed images
+/// * `max_width` - The maximum width of the compressed images
+/// * `max_height` - The maximum height of the compressed images
+/// * `num_threads` - The number of threads to use for compression
+/// * `delete_original` - Whether to delete the original images
+///
+/// # Returns
+///
+/// * `Result<String, String>` - An error message if the operation failed
 #[tauri::command]
 async fn compress_image(
     files: Vec<String>,
@@ -75,7 +101,6 @@ async fn compress_image(
             Ok(()) => {}
             Err(e) => {
                 errors = format!("{}\n{}", errors, e);
-                eprintln!("{}", e)
             }
         }
     }
@@ -92,4 +117,48 @@ async fn compress_image(
 fn get_number_of_threads() -> usize {
     let default_parallelism_approx = available_parallelism().unwrap().get();
     default_parallelism_approx
+}
+
+/// Get a list of images from a directory
+///
+/// # Arguments
+///
+/// * `directory` - The directory to search for images
+///
+/// # Returns
+///
+/// * `Vec<String>` - A list of image paths
+/// * `String` - An error message if the operation failed
+#[tauri::command]
+async fn get_images_from_directory(directory: &str) -> Result<Vec<String>, String> {
+    let mut images = Vec::new();
+    for entry in WalkDir::new(directory).into_iter().filter_map(|e| e.ok()) {
+        let path = entry.path();
+
+        if path.is_file() && is_image_file(path) {
+            images.push(path.to_str().unwrap().to_string());
+        }
+    }
+
+    Ok(images)
+}
+
+/// Check if a file is an image file
+///
+/// # Arguments
+///
+/// * `path` - The path to the file
+///
+/// # Returns
+///
+/// * `bool` - Whether the file is a supported image file
+fn is_image_file(path: &Path) -> bool {
+    if let Some(extension) = path.extension() {
+        return match extension.to_str().unwrap_or("").to_lowercase().as_str() {
+            "avif" | "bmp" | "dds" | "farbfeld" | "gif" | "hdr" | "ico" | "jpeg" | "jpg"
+            | "exr" | "png" | "pnm" | "qoi" | "tga" | "tiff" | "webp" => true,
+            _ => false,
+        };
+    }
+    false
 }

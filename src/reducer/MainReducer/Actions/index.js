@@ -12,6 +12,7 @@ import {
   SET_THREAD_MODE,
 } from "./ActionTypes/index.js";
 import { invoke } from "@tauri-apps/api";
+import { open } from "@tauri-apps/api/dialog";
 
 export const setPageIndex = (index) => ({
   type: SET_PAGE_INDEX,
@@ -69,3 +70,11 @@ export const setDeleteOriginalImages = (deleteOriginalImages) => ({
 });
 
 export const getNumberOfThreads = () => invoke("get_number_of_threads");
+
+export const getImagesFromFolder = async () => {
+  const selected = await open({
+    directory: true,
+  });
+
+  return await invoke("get_images_from_directory", { directory: selected });
+}
