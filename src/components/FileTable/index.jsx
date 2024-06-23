@@ -26,7 +26,7 @@ const FileTable = ({ elements, onDelete, disabled }) => {
       <Table stickyHeader>
         <Table.Thead>
           <Table.Tr>
-            <Table.Th>Files</Table.Th>
+            <Table.Th>File path</Table.Th>
             <Table.Th>#</Table.Th>
           </Table.Tr>
         </Table.Thead>

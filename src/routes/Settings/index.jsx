@@ -46,6 +46,19 @@ const Settings = () => {
             dispatch(setAutoUpdate(event.currentTarget.checked));
           }}
         />
+        <Switch
+          mt="xl"
+          label="Automatic multithreading"
+          description="Let the application decide how many threads to use."
+          checked={threadMode === "auto"}
+          onChange={(event) => {
+            if (event.currentTarget.checked) {
+              dispatch(setThreadMode("auto"));
+            } else {
+              dispatch(setThreadMode("manual"));
+            }
+          }}
+        />
         <Radio.Group
           mt="sm"
           name="themeType"
@@ -60,28 +73,19 @@ const Settings = () => {
             <Radio label="Light" value="light" />
           </Group>
         </Radio.Group>
-        <Switch
-          mt="xl"
-          label="Automatic multithreading"
-          checked={threadMode === "auto"}
-          onChange={(event) => {
-            if (event.currentTarget.checked) {
-              dispatch(setThreadMode("auto"));
-            } else {
-              dispatch(setThreadMode("manual"));
-            }
-          }}
-        />
-        <NumberInput
-          label="Thread count"
-          mt="sm"
-          disabled={threadMode === "auto"}
-          min={1}
-          value={threadCount}
-          onChange={(value) => {
-            dispatch(setThreadCount(value));
-          }}
-        />
+        {threadMode !== "auto" ? (
+          <NumberInput
+            label="Thread count"
+            description="How many threads do you want to use?"
+            mt="md"
+            disabled={threadMode === "auto"}
+            min={1}
+            value={threadCount}
+            onChange={(value) => {
+              dispatch(setThreadCount(value));
+            }}
+          />
+        ) : null}
       </Card>
     </Container>
   );

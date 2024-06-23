@@ -9,49 +9,16 @@ import {
   Center,
 } from "@mantine/core";
 import { IconCloudUpload } from "@tabler/icons-react";
-import { open } from "@tauri-apps/api/dialog";
 
-const DropzoneButton = ({ changeFiles }) => {
-  const openDialog = async () => {
-    const selected = await open({
-      multiple: true,
-      filters: [
-        {
-          name: "Image",
-          directory: true,
-          extensions: [
-            "avif",
-            "bmp",
-            "dds",
-            "farbfeld",
-            "gif",
-            "hdr",
-            "ico",
-            "jpeg",
-            "jpg",
-            "exr",
-            "png",
-            "pnm",
-            "qoi",
-            "tga",
-            "tiff",
-            "webp",
-          ],
-        },
-      ],
-    });
-
-    changeFiles(selected);
-  };
-
+const DropzoneButton = ({ addFiles }) => {
   return (
     <Paper>
-      <Container onClick={openDialog}>
+      <Container onClick={addFiles}>
         <div style={{ cursor: "pointer" }}>
           <Group justify="center">
             <IconCloudUpload
               style={{ width: rem(50), height: rem(50) }}
-              onClick={openDialog}
+              onClick={addFiles}
               stroke={1.5}
             />
           </Group>
@@ -66,7 +33,7 @@ const DropzoneButton = ({ changeFiles }) => {
           size="md"
           mt="md"
           radius="xl"
-          onClick={openDialog}
+          onClick={addFiles}
         >
           Get started
         </Button>

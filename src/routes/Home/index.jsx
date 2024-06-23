@@ -9,7 +9,6 @@ import {
   Button,
   ScrollArea,
   NumberInput,
-  Loader,
   Switch,
 } from "@mantine/core";
 import { MainContext } from "../../context/MainContextProvider/index.jsx";
@@ -28,9 +27,10 @@ import { IconCircleX } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import FileTable from "../../components/FileTable/index.jsx";
 import { invoke } from "@tauri-apps/api";
+import CompressButton from "../../components/CompressButton/index.jsx";
+import { open } from "@tauri-apps/api/dialog";
 
 const Home = () => {
-  const [hasSelectedFiles, setHasSelectedFiles] = useState(false);
   const [popOverOpen, setpopOverOpen] = useState(false);
   const [active, setActive] = useState(0);
 
@@ -54,16 +54,49 @@ const Home = () => {
   };
 
   /**
-   * Change the files
-   * @param files The new array of files
+   * Add files to the files array
+   * @returns {Promise<void>} The selected files
    */
-  const changeFiles = (files) => {
-    d1(setFiles(files));
+  const addFiles = async () => {
+    const selected = await open({
+      multiple: true,
+      filters: [
+        {
+          name: "Image",
+          directory: true,
+          extensions: [
+            "avif",
+            "bmp",
+            "dds",
+            "farbfeld",
+            "gif",
+            "hdr",
+            "ico",
+            "jpeg",
+            "jpg",
+            "exr",
+            "png",
+            "pnm",
+            "qoi",
+            "tga",
+            "tiff",
+            "webp",
+          ],
+        },
+      ],
+    });
 
-    if (!hasSelectedFiles && files) {
-      setHasSelectedFiles(true);
-      setActive(1);
+    if (!selected || selected.length === 0) return;
+
+    let filesToAdd = [];
+    for (const file of selected) {
+      if (!files || !files.includes(file)) {
+        filesToAdd.push(file);
+      }
     }
+
+    let newFiles = files ? files.concat(filesToAdd) : filesToAdd;
+    d1(setFiles(newFiles));
   };
 
   /**
@@ -74,10 +107,18 @@ const Home = () => {
     d1(setQuality(quality));
   };
 
+  /**
+   * Change the maximum image width
+   * @param maxWidth The new maximum image width
+   */
   const changeMaxWidth = (maxWidth) => {
     d1(setMaxWidth(maxWidth));
   };
 
+  /**
+   * Change the maximum image height
+   * @param maxHeight The new maximum image height
+   */
   const changeMaxHeight = (maxHeight) => {
     d1(setMaxHeight(maxHeight));
   };
@@ -117,6 +158,32 @@ const Home = () => {
       numThreads: threads,
       deleteOriginal: deleteOriginalImages,
     })
+      .then((res) => {
+        if (res.length === 0) {
+          notifications.show({
+            title: "Success",
+            message: "Your image(s) have been compressed successfully 🎉",
+          });
+        } else if (files.length === 1) {
+          notifications.show({
+            title: "Error",
+            message:
+              "The image could not be compressed. Please try again 😢: " + res,
+          });
+        } else if (files.length > 1) {
+          notifications.show({
+            title: "Success",
+            message:
+              "Your image(s) have been compressed successfully, however some images could not be compressed. Please try again 😢: " +
+              res,
+          });
+        }
+
+        if (deleteOriginalImages) {
+          d1(setFiles(null));
+          setActive(0);
+        }
+      })
       .catch((e) => {
         notifications.show({
           title: "Error",
@@ -150,17 +217,29 @@ const Home = () => {
               <Button
                 size="md"
                 mt="md"
-                onClick={() => changeFiles(null)}
+                radius="xl"
+                onClick={() => d1(setFiles(null))}
                 disabled={compressing}
+                style={{ float: "left" }}
               >
                 Clear
+              </Button>
+              <Button
+                size="md"
+                mt="md"
+                radius="xl"
+                onClick={addFiles}
+                disabled={compressing}
+                style={{ float: "right" }}
+              >
+                Add
               </Button>
             </Paper>
           ) : (
             <DropzoneButton
               popOverOpen={popOverOpen}
               setPopOverOpen={changePopOverOpen}
-              changeFiles={changeFiles}
+              addFiles={addFiles}
             />
           )
         ) : null}
@@ -193,7 +272,7 @@ const Home = () => {
               placeholder="Leave empty to disable"
             />
             <Switch
-              mt="sm"
+              mt="md"
               label="Delete original images after compression"
               color="red"
               checked={deleteOriginalImages}
@@ -205,21 +284,11 @@ const Home = () => {
         ) : null}
         {active === 2 ? (
           <Paper p="lg" style={{ width: "100%" }}>
-            {compressing ? (
-              <Center>
-                <Loader type="bars" />
-              </Center>
-            ) : null}
-            <Center>
-              <Button
-                size="md"
-                mt="xl"
-                onClick={compressFiles}
-                disabled={!files || compressing}
-              >
-                Compress
-              </Button>
-            </Center>
+            <CompressButton
+              loading={compressing}
+              disabled={!files || compressing}
+              onClick={compressFiles}
+            />
           </Paper>
         ) : null}
       </Center>
