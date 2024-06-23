@@ -22,6 +22,7 @@ const initialState = {
   threadMode,
   threadCount,
   compressing: false,
+  deleteOriginalImages: false,
 };
 
 export const MainContext = createContext(initialState);

@@ -34,6 +34,7 @@ async fn compress_image(
     max_width: u32,
     max_height: u32,
     num_threads: usize,
+    delete_original: bool,
 ) -> Result<String, String> {
     // Check if the number of threads is larger than the number of files and if so, replace the number of threads with the amount of files
     let num_threads = if num_threads > files.len() {
@@ -53,7 +54,7 @@ async fn compress_image(
         files
             .par_iter()
             .map(|input| {
-                process_image(input, "", quality, max_width, max_height, false)
+                process_image(input, "", quality, max_width, max_height, delete_original)
                     .map_err(|e| format!("Error processing {}: {}", input, e))
             })
             .collect()

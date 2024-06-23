@@ -1,6 +1,7 @@
 import {
   SET_AUTO_UPDATE,
   SET_COMPRESSING,
+  SET_DELETE_ORIGINAL_IMAGES,
   SET_FILES,
   SET_MAX_HEIGHT,
   SET_MAX_WIDTH,
@@ -60,6 +61,11 @@ export const setThreadCount = (count) => ({
 export const setCompressing = (compressing) => ({
   type: SET_COMPRESSING,
   payload: compressing,
+});
+
+export const setDeleteOriginalImages = (deleteOriginalImages) => ({
+  type: SET_DELETE_ORIGINAL_IMAGES,
+  payload: deleteOriginalImages,
 });
 
 export const getNumberOfThreads = () => invoke("get_number_of_threads");

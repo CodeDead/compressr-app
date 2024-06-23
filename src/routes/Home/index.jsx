@@ -10,11 +10,13 @@ import {
   ScrollArea,
   NumberInput,
   Loader,
+  Switch,
 } from "@mantine/core";
 import { MainContext } from "../../context/MainContextProvider/index.jsx";
 import {
   getNumberOfThreads,
   setCompressing,
+  setDeleteOriginalImages,
   setFiles,
   setMaxHeight,
   setMaxWidth,
@@ -41,6 +43,7 @@ const Home = () => {
     maxHeight,
     threadMode,
     threadCount,
+    deleteOriginalImages,
   } = state;
 
   /**
@@ -112,6 +115,7 @@ const Home = () => {
       maxWidth: parseFloat(maxWidth ? maxWidth : 0),
       maxHeight: parseFloat(maxHeight ? maxHeight : 0),
       numThreads: threads,
+      deleteOriginal: deleteOriginalImages,
     })
       .catch((e) => {
         notifications.show({
@@ -187,6 +191,15 @@ const Home = () => {
               onChange={changeMaxHeight}
               description="Resize an image if it is larger than the specified height in pixels"
               placeholder="Leave empty to disable"
+            />
+            <Switch
+              mt="sm"
+              label="Delete original images after compression"
+              color="red"
+              checked={deleteOriginalImages}
+              onChange={(event) =>
+                d1(setDeleteOriginalImages(event.currentTarget.checked))
+              }
             />
           </Paper>
         ) : null}

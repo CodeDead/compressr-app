@@ -1,6 +1,7 @@
 import {
   SET_AUTO_UPDATE,
   SET_COMPRESSING,
+  SET_DELETE_ORIGINAL_IMAGES,
   SET_FILES,
   SET_MAX_HEIGHT,
   SET_MAX_WIDTH,
@@ -66,6 +67,11 @@ const MainReducer = (state, action) => {
       return {
         ...state,
         compressing: action.payload,
+      };
+    case SET_DELETE_ORIGINAL_IMAGES:
+      return {
+        ...state,
+        deleteOriginalImages: action.payload,
       };
     default:
       throw new Error();
