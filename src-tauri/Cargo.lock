@@ -75,6 +75,7 @@ dependencies = [
  "image 0.25.1",
  "mozjpeg",
  "open",
+ "rayon",
  "serde",
  "serde_json",
  "tauri",

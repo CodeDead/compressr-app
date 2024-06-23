@@ -8,10 +8,12 @@ import {
   Stepper,
   Button,
   ScrollArea,
-  NumberInput, Loader,
+  NumberInput,
+  Loader,
 } from "@mantine/core";
 import { MainContext } from "../../context/MainContextProvider/index.jsx";
 import {
+  getNumberOfThreads,
   setCompressing,
   setFiles,
   setMaxHeight,
@@ -31,7 +33,15 @@ const Home = () => {
   const [active, setActive] = useState(0);
 
   const [state, d1] = useContext(MainContext);
-  const { compressing, quality, files, maxWidth, maxHeight } = state;
+  const {
+    compressing,
+    quality,
+    files,
+    maxWidth,
+    maxHeight,
+    threadMode,
+    threadCount,
+  } = state;
 
   /**
    * Change the popover open state
@@ -84,16 +94,24 @@ const Home = () => {
   /**
    * Compress the files
    */
-  const compressFiles = () => {
+  const compressFiles = async () => {
     if (!files) return;
 
     d1(setCompressing(true));
+
+    let threads = 1;
+    if (threadMode === "manual") {
+      threads = threadCount;
+    } else if (threadMode === "auto") {
+      threads = await getNumberOfThreads();
+    }
 
     invoke("compress_image", {
       files,
       quality: parseFloat(quality),
       maxWidth: parseFloat(maxWidth ? maxWidth : 0),
       maxHeight: parseFloat(maxHeight ? maxHeight : 0),
+      numThreads: threads,
     })
       .catch((e) => {
         notifications.show({
@@ -174,15 +192,17 @@ const Home = () => {
         ) : null}
         {active === 2 ? (
           <Paper p="lg" style={{ width: "100%" }}>
+            {compressing ? (
+              <Center>
+                <Loader type="bars" />
+              </Center>
+            ) : null}
             <Center>
-              {compressing ? (
-                  <Loader type="bars" />
-              ) : null}
               <Button
-                  size="md"
-                  mt="xl"
-                  onClick={compressFiles}
-                  disabled={!files || compressing}
+                size="md"
+                mt="xl"
+                onClick={compressFiles}
+                disabled={!files || compressing}
               >
                 Compress
               </Button>
