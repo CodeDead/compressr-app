@@ -1,12 +1,16 @@
 import {
   SET_AUTO_UPDATE,
+  SET_COMPRESSING,
   SET_FILES,
   SET_MAX_HEIGHT,
   SET_MAX_WIDTH,
   SET_PAGE_INDEX,
   SET_QUALITY,
   SET_THEME_TYPE,
+  SET_THREAD_COUNT,
+  SET_THREAD_MODE,
 } from "./ActionTypes/index.js";
+import { invoke } from "@tauri-apps/api";
 
 export const setPageIndex = (index) => ({
   type: SET_PAGE_INDEX,
@@ -42,3 +46,20 @@ export const setMaxWidth = (maxWidth) => ({
   type: SET_MAX_WIDTH,
   payload: maxWidth,
 });
+
+export const setThreadMode = (mode) => ({
+  type: SET_THREAD_MODE,
+  payload: mode,
+});
+
+export const setThreadCount = (count) => ({
+  type: SET_THREAD_COUNT,
+  payload: count,
+});
+
+export const setCompressing = (compressing) => ({
+  type: SET_COMPRESSING,
+  payload: compressing,
+});
+
+export const getNumberOfThreads = () => invoke("get_number_of_threads");

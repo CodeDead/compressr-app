@@ -3,7 +3,7 @@ import { Table } from "@mantine/core";
 import { ActionIcon } from "@mantine/core";
 import { IconCircleX } from "@tabler/icons-react";
 
-const FileTable = ({ elements, onDelete }) => {
+const FileTable = ({ elements, onDelete, disabled }) => {
   const rows = elements.map((element) => (
     <Table.Tr key={element}>
       <Table.Td>{element}</Table.Td>
@@ -12,6 +12,7 @@ const FileTable = ({ elements, onDelete }) => {
           size="sm"
           variant="default"
           title="Remove"
+          disabled={disabled}
           onClick={() => onDelete(element)}
         >
           <IconCircleX />

@@ -8,10 +8,11 @@ import {
   Stepper,
   Button,
   ScrollArea,
-  NumberInput,
+  NumberInput, Loader,
 } from "@mantine/core";
 import { MainContext } from "../../context/MainContextProvider/index.jsx";
 import {
+  setCompressing,
   setFiles,
   setMaxHeight,
   setMaxWidth,
@@ -30,7 +31,7 @@ const Home = () => {
   const [active, setActive] = useState(0);
 
   const [state, d1] = useContext(MainContext);
-  const { quality, files, maxWidth, maxHeight } = state;
+  const { compressing, quality, files, maxWidth, maxHeight } = state;
 
   /**
    * Change the popover open state
@@ -86,21 +87,24 @@ const Home = () => {
   const compressFiles = () => {
     if (!files) return;
 
-    for (const c of files) {
-      invoke("compress_image", {
-        path: c,
-        quality: parseFloat(quality),
-        maxWidth: parseFloat(maxWidth ? maxWidth : 0),
-        maxHeight: parseFloat(maxHeight ? maxHeight : 0),
-      }).catch((e) => {
+    d1(setCompressing(true));
+
+    invoke("compress_image", {
+      files,
+      quality: parseFloat(quality),
+      maxWidth: parseFloat(maxWidth ? maxWidth : 0),
+      maxHeight: parseFloat(maxHeight ? maxHeight : 0),
+    })
+      .catch((e) => {
         notifications.show({
           title: "Error",
           message:
-            "The image could not be compressed. Please try again. 😢, error: " +
-            e,
+            "The image could not be compressed. Please try again 😢: " + e,
         });
+      })
+      .finally(() => {
+        d1(setCompressing(false));
       });
-    }
   };
 
   useEffect(() => {
@@ -115,9 +119,18 @@ const Home = () => {
           files ? (
             <Paper p="xl" style={{ width: "100%" }}>
               <ScrollArea h={250}>
-                <FileTable elements={files} onDelete={removeFile} />
+                <FileTable
+                  elements={files}
+                  onDelete={removeFile}
+                  disabled={compressing}
+                />
               </ScrollArea>
-              <Button size="md" mt="md" onClick={() => changeFiles(null)}>
+              <Button
+                size="md"
+                mt="md"
+                onClick={() => changeFiles(null)}
+                disabled={compressing}
+              >
                 Clear
               </Button>
             </Paper>
@@ -132,10 +145,15 @@ const Home = () => {
         {active === 1 ? (
           <Paper p="xl" style={{ width: "100%" }}>
             <Text size="md">Quality</Text>
-            <CompressSlider value={quality} onChange={changeQuality} />
+            <CompressSlider
+              value={quality}
+              onChange={changeQuality}
+              disabled={compressing}
+            />
             <NumberInput
               mt="xl"
               label="Maximum width"
+              disabled={compressing}
               min={1}
               value={maxWidth}
               onChange={changeMaxWidth}
@@ -145,6 +163,7 @@ const Home = () => {
             <NumberInput
               mt="sm"
               label="Maximum height"
+              disabled={compressing}
               min={1}
               value={maxHeight}
               onChange={changeMaxHeight}
@@ -154,11 +173,20 @@ const Home = () => {
           </Paper>
         ) : null}
         {active === 2 ? (
-          <Paper p="xl" style={{ width: "100%" }}>
-            <Text size="md">Compress</Text>
-            <Button size="md" mt="xl" onClick={compressFiles} disabled={!files}>
-              Compress
-            </Button>
+          <Paper p="lg" style={{ width: "100%" }}>
+            <Center>
+              {compressing ? (
+                  <Loader type="bars" />
+              ) : null}
+              <Button
+                  size="md"
+                  mt="xl"
+                  onClick={compressFiles}
+                  disabled={!files || compressing}
+              >
+                Compress
+              </Button>
+            </Center>
           </Paper>
         ) : null}
       </Center>

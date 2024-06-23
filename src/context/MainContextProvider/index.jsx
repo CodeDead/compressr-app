@@ -6,6 +6,10 @@ const themeType = localStorage.themeType ? localStorage.themeType : "auto";
 const autoUpdate = localStorage.autoUpdate
   ? localStorage.autoUpdate === "true"
   : true;
+const threadMode = localStorage.threadMode ? localStorage.threadMode : "auto";
+const threadCount = localStorage.threadCount
+  ? parseInt(localStorage.threadCount)
+  : 1;
 
 const initialState = {
   pageIndex: 0,
@@ -15,6 +19,9 @@ const initialState = {
   autoUpdate,
   maxWidth: "",
   maxHeight: "",
+  threadMode,
+  threadCount,
+  compressing: false,
 };
 
 export const MainContext = createContext(initialState);

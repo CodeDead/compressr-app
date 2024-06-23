@@ -1,13 +1,14 @@
 import React from "react";
 import { Slider } from "@mantine/core";
 
-const CompressSlider = ({ value, onChange }) => {
+const CompressSlider = ({ value, onChange, disabled }) => {
   return (
     <Slider
       value={value}
       onChange={onChange}
       label={(value) => `${value}%`}
       mb="md"
+      disabled={disabled}
       marks={[
         { value: 0, label: "0%" },
         { value: 20, label: "20%" },

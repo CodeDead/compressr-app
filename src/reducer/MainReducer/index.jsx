@@ -1,11 +1,14 @@
 import {
   SET_AUTO_UPDATE,
+  SET_COMPRESSING,
   SET_FILES,
   SET_MAX_HEIGHT,
   SET_MAX_WIDTH,
   SET_PAGE_INDEX,
   SET_QUALITY,
   SET_THEME_TYPE,
+  SET_THREAD_COUNT,
+  SET_THREAD_MODE,
 } from "./Actions/ActionTypes/index.js";
 
 const MainReducer = (state, action) => {
@@ -46,6 +49,23 @@ const MainReducer = (state, action) => {
       return {
         ...state,
         autoUpdate: action.payload,
+      };
+    case SET_THREAD_MODE:
+      localStorage.threadMode = action.payload;
+      return {
+        ...state,
+        threadMode: action.payload,
+      };
+    case SET_THREAD_COUNT:
+      localStorage.threadCount = action.payload;
+      return {
+        ...state,
+        threadCount: action.payload,
+      };
+    case SET_COMPRESSING:
+      return {
+        ...state,
+        compressing: action.payload,
       };
     default:
       throw new Error();

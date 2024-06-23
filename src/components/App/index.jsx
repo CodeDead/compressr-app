@@ -8,6 +8,10 @@ import {
 } from "@mantine/core";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { MainContext } from "../../context/MainContextProvider";
+import {
+  getNumberOfThreads,
+  setThreadCount,
+} from "../../reducer/MainReducer/Actions/index.js";
 
 const Home = lazy(() => import("../../routes/Home"));
 const About = lazy(() => import("../../routes/About"));
@@ -15,13 +19,29 @@ const Settings = lazy(() => import("../../routes/Settings"));
 const NotFound = lazy(() => import("../../routes/NotFound"));
 
 const App = () => {
-  const [state] = useContext(MainContext);
+  const [state, dispatch] = useContext(MainContext);
   const { setColorScheme } = useMantineColorScheme();
 
   const { themeType } = state;
 
+  /**
+   * Update the number of threads
+   */
+  const updateThreads = async () => {
+    if (!localStorage.threadCount) {
+      getNumberOfThreads()
+        .then((res) => {
+          dispatch(setThreadCount(res));
+        })
+        .catch(() => {
+          dispatch(setThreadCount(1));
+        });
+    }
+  };
+
   useEffect(() => {
     setColorScheme(themeType);
+    updateThreads();
   }, []);
 
   return (

@@ -2,13 +2,18 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use image::GenericImageView;
-use mozjpeg::{ColorSpace, Compress, ScanMode};
+use mozjpeg::{ColorSpace, Compress};
 use std::fs::File;
 use std::io::{BufWriter, Write};
+use std::thread::available_parallelism;
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![open, compress_image])
+        .invoke_handler(tauri::generate_handler![
+            open,
+            compress_image,
+            get_number_of_threads
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -22,54 +27,74 @@ fn open(site: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn compress_image(path: &str, quality: f32, max_width: u32, max_height: u32) -> Result<(), String> {
-    // Load the image
-    let img = image::open(path).expect("Failed to open image");
+async fn compress_image(files: Vec<String>, quality: f32, max_width: u32, max_height: u32) -> Result<(), String> {
+    for file in files {
+        // Load the image
+        let mut img = image::open(file).expect("Failed to open image");
 
-    // Get image dimensions and raw pixels
-    let (mut width, mut height) = img.dimensions();
-    let raw_pixels = img.to_rgb8().into_raw();
+        // Get image dimensions and raw pixels
+        let (width, height) = img.dimensions();
+        if max_width > 0 && width > max_width {
+            img = img.resize(
+                max_width,
+                (height as f32 * max_width as f32 / width as f32) as u32,
+                image::imageops::FilterType::Lanczos3,
+            );
+        } else if max_height > 0 && height > max_height {
+            img = img.resize(
+                (width as f32 * max_height as f32 / height as f32) as u32,
+                max_height,
+                image::imageops::FilterType::Lanczos3,
+            );
+        }
+        let (width, height) = img.dimensions();
+        let raw_pixels = img.to_rgb8().into_raw();
 
-    if max_width > 0 && width > max_width {
-        height = (height as f32 * max_width as f32 / width as f32) as u32;
-        width = max_width;
-    } else if max_height > 0 && height > max_height {
-        width = (width as f32 * max_height as f32 / height as f32) as u32;
-        height = max_height;
-    }
+        let res = std::panic::catch_unwind(|| -> std::io::Result<Vec<u8>> {
+            let mut comp = Compress::new(ColorSpace::JCS_RGB);
 
-    let res = std::panic::catch_unwind(|| -> std::io::Result<Vec<u8>> {
-        let mut comp = Compress::new(ColorSpace::JCS_RGB);
+            comp.set_size(width as usize, height as usize);
+            comp.set_quality(quality);
+            comp.set_optimize_scans(true);
+            comp.set_progressive_mode();
 
-        println!("Image dimensions: {}x{}", width, height);
-        println!("Quality: {}", quality);
+            let mut comp = comp.start_compress(Vec::new())?;
 
-        comp.set_size(width as usize, height as usize);
-        comp.set_quality(quality);
-        //comp.set_progressive_mode();
-        comp.set_scan_optimization_mode(ScanMode::Auto);
+            // replace with your image data
+            comp.write_scanlines(&raw_pixels)?;
 
-        let mut comp = comp.start_compress(Vec::new())?; // any io::Write will work
+            let writer = comp.finish()?;
+            Ok(writer)
+        });
 
-        // replace with your image data
-        comp.write_scanlines(&raw_pixels)?;
-
-        let writer = comp.finish()?;
-        Ok(writer)
-    });
-
-    match res {
-        Ok(writer) => match writer {
-            Ok(writer) => {
-                let mut file =
-                    BufWriter::new(File::create("output.jpg").expect("Failed to create file"));
-                file.write_all(&writer).expect("Failed to write image");
-                Ok(())
+        match res {
+            Ok(writer) => match writer {
+                Ok(writer) => {
+                    let mut file = BufWriter::new(
+                        File::create("/home/deadline/output.jpg").expect("Failed to create file"),
+                    );
+                    file.write_all(&writer).expect("Failed to write image");
+                }
+                Err(e) => {
+                    return Err(e.to_string())
+                },
+            },
+            Err(e) => {
+                return Err(String::from("Unknown mozjpeg error"));
             }
-            Err(e) => Err(e.to_string()),
-        },
-        Err(e) => {
-            panic!("Error: {:?}", e);
         }
     }
+
+    Ok(())
+}
+
+/// Get the number of threads that can be used for port scanning
+///
+/// # Returns
+///
+/// * `u32` - The number of threads that can be used for port scanning
+#[tauri::command]
+fn get_number_of_threads() -> usize {
+    let default_parallelism_approx = available_parallelism().unwrap().get();
+    default_parallelism_approx
 }

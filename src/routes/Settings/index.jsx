@@ -4,11 +4,14 @@ import {
   setAutoUpdate,
   setPageIndex,
   setThemeType,
+  setThreadCount,
+  setThreadMode,
 } from "../../reducer/MainReducer/Actions/index.js";
 import {
   Card,
   Container,
   Group,
+  NumberInput,
   Radio,
   Switch,
   useMantineColorScheme,
@@ -18,7 +21,7 @@ const Settings = () => {
   const [state, dispatch] = useContext(MainContext);
   const { setColorScheme } = useMantineColorScheme();
 
-  const { themeType, autoUpdate } = state;
+  const { themeType, autoUpdate, threadMode, threadCount } = state;
 
   /**
    * Change the theme type
@@ -57,6 +60,28 @@ const Settings = () => {
             <Radio label="Light" value="light" />
           </Group>
         </Radio.Group>
+        <Switch
+          mt="xl"
+          label="Automatic multithreading"
+          checked={threadMode === "auto"}
+          onChange={(event) => {
+            if (event.currentTarget.checked) {
+              dispatch(setThreadMode("auto"));
+            } else {
+              dispatch(setThreadMode("manual"));
+            }
+          }}
+        />
+        <NumberInput
+          label="Thread count"
+          mt="sm"
+          disabled={threadMode === "auto"}
+          min={1}
+          value={threadCount}
+          onChange={(value) => {
+            dispatch(setThreadCount(value));
+          }}
+        />
       </Card>
     </Container>
   );
