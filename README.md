@@ -4,6 +4,8 @@
 ![GitHub](https://img.shields.io/github/license/CodeDead/compressr-app)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/CodeDead/compressr-app)
 
+![Compressr](https://i.imgur.com/Em57qsL.png)
+
 Compressr is a free and open-source multi-platform application that can help you compress images and export them.
 
 For a live version of the application, visit [our website](https://compressr.codedead.com).
