@@ -9,9 +9,7 @@ import {
 } from "@mantine/core";
 import {
   IconHome2,
-  IconKey,
   IconSettings,
-  IconLogout,
   IconInfoCircle,
 } from "@tabler/icons-react";
 import classes from "./headerbar.module.css";
@@ -64,11 +62,6 @@ const HeaderBar = () => {
           {links}
         </Stack>
       </div>
-
-      <Stack justify="center" gap={0}>
-        <NavbarLink icon={IconKey} label="License" />
-        <NavbarLink icon={IconLogout} label="Logout" />
-      </Stack>
     </nav>
   );
 };
