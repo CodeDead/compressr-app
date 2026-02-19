@@ -1,5 +1,6 @@
 # Compressr-app
 
+![Warning](https://img.shields.io/badge/warning-Under%20Development-yellow)
 ![GitHub](https://img.shields.io/badge/language-Rust-green)
 ![GitHub](https://img.shields.io/github/license/CodeDead/compressr-app)
 
