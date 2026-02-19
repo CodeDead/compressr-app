@@ -28,6 +28,8 @@ Whether you're a professional photographer or just looking to save space on your
 - [anyhow](https://crates.io/crates/anyhow)
 - [resvg](https://crates.io/crates/resvg)
 - [tiny-skia](https://crates.io/crates/tiny-skia)
+- [iced_aw](https://crates.io/crates/iced_aw)
+- [tokio](https://crates.io/crates/tokio)
 
 ## About
 
