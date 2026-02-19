@@ -4,7 +4,7 @@ use std::fs;
 use std::fs::File;
 use tiny_skia::Pixmap;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ImageService;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,15 +50,25 @@ impl ImageService {
         height: Option<u32>,
         quality: u8,
         format: OutputFormat,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), String> {
         if input_path.is_empty() || output_path.is_empty() {
-            anyhow::bail!("Input or output missing");
+            return Err("Input and output paths cannot be empty".to_string());
         }
 
         let mut img = if input_path.ends_with(".svg") {
-            ImageService::load_svg(input_path)?
+            match ImageService::load_svg(input_path) {
+                Ok(img) => img,
+                Err(e) => {
+                    return Err(format!("Failed to load SVG: {e}"));
+                }
+            }
         } else {
-            image::open(input_path)?
+            match image::open(input_path) {
+                Ok(img) => img,
+                Err(e) => {
+                    return Err(format!("Failed to load image: {e}"));
+                }
+            }
         };
 
         // Scale
@@ -76,25 +86,54 @@ impl ImageService {
             img = img.resize(w, h, image::imageops::FilterType::Lanczos3);
         }
 
-        let mut output = File::create(output_path)?;
+        let mut output = match File::create(output_path) {
+            Ok(f) => f,
+            Err(e) => {
+                return Err(format!("Failed to create output file: {e}"));
+            }
+        };
 
         match format {
             OutputFormat::Jpeg => {
                 let mut encoder =
                     image::codecs::jpeg::JpegEncoder::new_with_quality(&mut output, quality);
-                encoder.encode_image(&img)?;
+                match encoder.encode_image(&img) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        return Err(format!("Failed to encode JPEG: {e}"));
+                    }
+                };
             }
             OutputFormat::WebP => {
                 let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut output);
-                encoder.encode(
+                match encoder.encode(
                     &img.to_rgba8(),
                     img.width(),
                     img.height(),
                     ExtendedColorType::Rgba8,
-                )?;
+                ) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        return Err(format!("Failed to encode WebP: {e}"));
+                    }
+                };
             }
-            OutputFormat::Png => img.write_to(&mut output, ImageFormat::Png)?,
-            OutputFormat::Gif => img.write_to(&mut output, ImageFormat::Gif)?,
+            OutputFormat::Png => {
+                match img.write_to(&mut output, ImageFormat::Png) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        return Err(format!("Failed to encode PNG: {e}"));
+                    }
+                };
+            }
+            OutputFormat::Gif => {
+                match img.write_to(&mut output, ImageFormat::Gif) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        return Err(format!("Failed to encode GIF: {e}"));
+                    }
+                };
+            }
         }
 
         Ok(())
@@ -114,7 +153,6 @@ impl ImageService {
 
         // Parse options
         let mut opt = usvg::Options {
-            // Get file's absolute directory.
             resources_dir: fs::canonicalize(path)
                 .ok()
                 .and_then(|p| p.parent().map(|p| p.to_path_buf())),

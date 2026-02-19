@@ -1,10 +1,11 @@
 use crate::services::image_service::{ImageService, OutputFormat};
+use iced::widget::{Image as iced_image, Text, image};
 use iced::widget::{button, container, pick_list, row, slider, space, text, text_input};
 use iced::{Element, Length, Task, color};
+use iced_aw::{helpers::badge, style};
 use rfd::FileDialog;
 
 struct State {
-    status: String,
     input_path: String,
     output_path: String,
     scale: u32,
@@ -12,12 +13,14 @@ struct State {
     width: Option<u32>,
     quality: u8,
     format: OutputFormat,
+    is_compressing: bool,
+    compression_succeeded: bool,
+    status: String,
 }
 
 impl Default for State {
     fn default() -> Self {
         State {
-            status: String::new(),
             input_path: String::new(),
             output_path: String::new(),
             scale: 100,
@@ -25,6 +28,9 @@ impl Default for State {
             width: None,
             quality: 100,
             format: OutputFormat::Jpeg,
+            is_compressing: false,
+            compression_succeeded: false,
+            status: String::new(),
         }
     }
 }
@@ -50,11 +56,16 @@ pub enum Message {
     SelectInput,
     SelectOutput,
     Compress,
+    CompressionCompleted(Result<(), String>),
     FormatSelected(OutputFormat),
     QualityChanged(u8),
     WidthChanged(String),
     HeightChanged(String),
     ScaleChanged(u32),
+    OpenSettings,
+    IgnoreQuality(u8),
+    IgnoreScale(u32),
+    IgnoreFormatSelected(OutputFormat),
 }
 
 impl MainView {
@@ -73,6 +84,7 @@ impl MainView {
                 if let Some(path) = FileDialog::new().pick_file() {
                     self.state.input_path = path.display().to_string();
                 }
+                self.state.compression_succeeded = false;
             }
             Message::SelectOutput => {
                 if let Some(path) = FileDialog::new().save_file() {
@@ -80,19 +92,31 @@ impl MainView {
                 }
             }
             Message::Compress => {
-                self.state.status = "⏳ Compressing...".into();
-                match self.image_service.compress_image(
-                    &self.state.input_path,
-                    &self.state.output_path,
-                    self.state.scale,
-                    self.state.width,
-                    self.state.height,
-                    self.state.quality,
-                    self.state.format,
-                ) {
-                    Ok(_) => self.state.status = "✅ Compression successful".into(),
-                    Err(e) => self.state.status = format!("❌ Error: {}", e),
-                }
+                self.state.is_compressing = true;
+                self.state.compression_succeeded = false;
+                self.state.status.clear();
+
+                let input = self.state.input_path.clone();
+                let output = self.state.output_path.clone();
+                let scale = self.state.scale;
+                let width = self.state.width;
+                let height = self.state.height;
+                let quality = self.state.quality;
+                let format = self.state.format;
+                let image_service = self.image_service.clone();
+
+                return Task::perform(
+                    async move {
+                        tokio::task::spawn_blocking(move || {
+                            image_service.compress_image(
+                                &input, &output, scale, width, height, quality, format,
+                            )
+                        })
+                        .await
+                        .unwrap()
+                    },
+                    Message::CompressionCompleted,
+                );
             }
             Message::FormatSelected(f) => self.state.format = f,
             Message::QualityChanged(q) => self.state.quality = q,
@@ -120,6 +144,21 @@ impl MainView {
                 }
             }
             Message::ScaleChanged(s) => self.state.scale = s,
+            Message::OpenSettings => todo!(),
+            Message::CompressionCompleted(e) => {
+                self.state.is_compressing = false;
+
+                match e {
+                    Ok(_) => self.state.compression_succeeded = true,
+                    Err(err) => self.state.status = format!("Error: {err}"),
+                }
+            }
+            Message::IgnoreQuality(_e) => { /* No state change, used to prevent updates during slider dragging */
+            }
+            Message::IgnoreScale(_e) => { /* No state change, used to prevent updates during slider dragging */
+            }
+            Message::IgnoreFormatSelected(_e) => { /* No state change, used to prevent updates during pick list selection */
+            }
         }
 
         Task::none()
@@ -131,16 +170,56 @@ impl MainView {
     ///
     /// An `Element<Message>` that represents the current view of the application.
     pub fn view(&self) -> Element<'_, Message> {
+        let bytes = include_bytes!("../../resources/settings.png");
+        let handle = image::Handle::from_bytes(bytes.as_slice());
+        let image = iced_image::new(handle);
+
+        let mut browse_input_button = button("Browse");
+        let mut browse_output_button = button("Browse");
+
+        let mut quality_slider = slider(0..=100, self.state.quality, Message::IgnoreQuality);
+        let mut scale_slider = slider(0..=100, self.state.scale, Message::IgnoreScale);
+
+        let mut format_pick_list = pick_list(
+            &OutputFormat::ALL[..],
+            Some(self.state.format),
+            Message::IgnoreFormatSelected,
+        );
+
+        let mut compress_button = button("Compress");
+
+        if !self.state.is_compressing {
+            browse_input_button = browse_input_button.on_press(Message::SelectInput);
+            browse_output_button = browse_output_button.on_press(Message::SelectOutput);
+
+            quality_slider = slider(0..=100, self.state.quality, Message::QualityChanged);
+            scale_slider = slider(0..=100, self.state.scale, Message::ScaleChanged);
+
+            format_pick_list = pick_list(
+                &OutputFormat::ALL[..],
+                Some(self.state.format),
+                Message::FormatSelected,
+            );
+
+            compress_button = compress_button.on_press(Message::Compress);
+        }
+
         let header = iced::widget::column![row![
-            container(
-                text(" Compressr")
-                    .size(25)
+            container(iced::widget::column![row![
+                text("Compressr")
+                    .size(22)
                     .width(Length::Shrink)
-                    .color(color!(255, 255, 255))
-            )
+                    .color(color!(255, 255, 255)),
+                space::horizontal().width(Length::Fill),
+                button(image.width(28).height(28))
+                    .width(Length::Shrink)
+                    .height(Length::Shrink)
+                    .on_press(Message::OpenSettings)
+            ]])
             .center_y(Length::Fill)
             .width(Length::Fill)
             .height(50)
+            .padding(10)
             .style(|_| container::Style {
                 text_color: Default::default(),
                 background: Some(iced::Background::Color(color!(48, 48, 48, 0.8))),
@@ -155,35 +234,33 @@ impl MainView {
         ]];
         let content = iced::widget::column![
             row![
-                text("Input: "),
-                text(self.state.input_path.clone()).width(Length::Fill),
-                button("Browse").on_press(Message::SelectInput)
+                self.state
+                    .status
+                    .starts_with("Error")
+                    .then(|| badge(Text::new(&self.state.status)).style(style::badge::danger)),
             ],
             row![
-                text("Output: "),
-                text(self.state.output_path.clone()).width(Length::Fill),
-                button("Browse").on_press(Message::SelectOutput)
+                container(text("Input:")).width(Length::FillPortion(1)),
+                container(text_input("", &self.state.input_path).width(Length::Fill))
+                    .width(Length::FillPortion(3)),
+                container(browse_input_button).width(Length::Shrink),
             ],
             row![
-                text("Format: "),
-                space::horizontal(),
-                pick_list(
-                    &OutputFormat::ALL[..],
-                    Some(self.state.format),
-                    Message::FormatSelected
-                )
+                container(text("Output:")).width(Length::FillPortion(1)),
+                container(text_input("", &self.state.output_path).width(Length::Fill))
+                    .width(Length::FillPortion(3)),
+                container(browse_output_button).width(Length::Shrink),
             ],
+            row![text("Format: "), space::horizontal(), format_pick_list,],
             row![
                 container(text("Quality:")).width(Length::FillPortion(1)),
-                container(slider(0..=100, self.state.quality, Message::QualityChanged))
-                    .width(Length::FillPortion(3)),
+                container(quality_slider).width(Length::FillPortion(3)),
                 container(text(self.state.quality.to_string() + "%")).width(Length::Shrink),
             ]
             .spacing(10),
             row![
                 container(text("Scale: ")).width(Length::FillPortion(1)),
-                container(slider(0..=100, self.state.scale, Message::ScaleChanged))
-                    .width(Length::FillPortion(3)),
+                container(scale_slider).width(Length::FillPortion(3)),
                 container(text(self.state.scale.to_string() + "%")).width(Length::Shrink),
             ]
             .spacing(10),
@@ -214,10 +291,15 @@ impl MainView {
                 .on_input(Message::HeightChanged),
             ],
             row![
+                self.state
+                    .is_compressing
+                    .then(|| badge(Text::new("Compressing")).style(style::badge::info)),
+                self.state
+                    .compression_succeeded
+                    .then(|| badge(Text::new("Compressed!")).style(style::badge::success)),
                 space::horizontal(),
-                button("Compress").on_press(Message::Compress),
+                compress_button,
             ],
-            text(&self.state.status)
         ]
         .spacing(15)
         .padding(15);

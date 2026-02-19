@@ -3,6 +3,8 @@
 ![GitHub](https://img.shields.io/badge/language-Rust-green)
 ![GitHub](https://img.shields.io/github/license/CodeDead/compressr-app)
 
+![Compressr App](https://i.imgur.com/P76r4u3.png)
+
 Compressr is the desktop application for compressing and optimizing images. It supports various image formats and provides a user-friendly interface for batch processing.
 
 With Compressr, you can easily reduce the file size of your images without compromising on quality, making it ideal for web use, sharing, and storage.
