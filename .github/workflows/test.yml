@@ -2,7 +2,7 @@ name: Test
 
 on:
   pull_request:
-    types: [opened, reopened]
+    types: [ opened, reopened ]
   push:
     branches:
       - master
@@ -10,18 +10,32 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
+          - platform: 'ubuntu-latest'
+            args: ''
+          - platform: 'ubuntu-24.04-arm'
+            args: ''
+          - platform: 'windows-latest'
+            args: ''
 
+    runs-on: ${{ matrix.platform }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
-      - name: Install latest rust toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          default: true
-          override: true
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
 
       - name: Check code formatting
         run: cargo fmt --all -- --check
