@@ -2,6 +2,7 @@ use image::{ExtendedColorType, GenericImageView, ImageFormat};
 use resvg::usvg;
 use std::fs;
 use std::fs::File;
+use std::path::Path;
 use tiny_skia::Pixmap;
 
 #[derive(Default, Clone)]
@@ -55,88 +56,163 @@ impl ImageService {
             return Err("Input and output paths cannot be empty".to_string());
         }
 
-        let mut img = if input_path.ends_with(".svg") {
-            match ImageService::load_svg(input_path) {
-                Ok(img) => img,
-                Err(e) => {
-                    return Err(format!("Failed to load SVG: {e}"));
-                }
-            }
-        } else {
-            match image::open(input_path) {
-                Ok(img) => img,
-                Err(e) => {
-                    return Err(format!("Failed to load image: {e}"));
-                }
-            }
-        };
-
-        // Scale
-        let (w, h) = img.dimensions();
-        img = img.resize(
-            w * scale / 100,
-            h * scale / 100,
-            image::imageops::FilterType::Lanczos3,
-        );
-
-        // Resize
-        if let Some(w) = width
-            && let Some(h) = height
+        // Check if input path is a directory
+        let mut files = Vec::new();
+        if fs::metadata(input_path)
+            .map_err(|e| format!("Failed to read input path metadata: {e}"))?
+            .is_dir()
         {
-            img = img.resize(w, h, image::imageops::FilterType::Lanczos3);
+            files = match self.list_files_recursively(Path::new(input_path)) {
+                Ok(files) => files,
+                Err(e) => {
+                    return Err(format!("Failed to list files in directory: {e}"));
+                }
+            };
+        } else {
+            files.push(input_path.to_string());
         }
 
-        let mut output = match File::create(output_path) {
-            Ok(f) => f,
-            Err(e) => {
-                return Err(format!("Failed to create output file: {e}"));
-            }
-        };
+        let is_output_a_directory = fs::metadata(output_path)
+            .map_err(|e| format!("Failed to read output path metadata: {e}"))?
+            .is_dir();
 
-        match format {
-            OutputFormat::Jpeg => {
-                let mut encoder =
-                    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut output, quality);
-                match encoder.encode_image(&img) {
-                    Ok(_) => {}
+        for file in files {
+            let mut img = if file.ends_with(".svg") {
+                match ImageService::load_svg(&file) {
+                    Ok(img) => img,
                     Err(e) => {
-                        return Err(format!("Failed to encode JPEG: {e}"));
+                        return Err(format!("Failed to load SVG: {e}"));
                     }
-                };
+                }
+            } else {
+                match image::open(&file) {
+                    Ok(img) => img,
+                    Err(e) => {
+                        return Err(format!("Failed to load image: {e}"));
+                    }
+                }
+            };
+
+            // Scale
+            let (w, h) = img.dimensions();
+            img = img.resize(
+                w * scale / 100,
+                h * scale / 100,
+                image::imageops::FilterType::Lanczos3,
+            );
+
+            // Resize
+            if let Some(w) = width
+                && let Some(h) = height
+            {
+                img = img.resize(w, h, image::imageops::FilterType::Lanczos3);
             }
-            OutputFormat::WebP => {
-                let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut output);
-                match encoder.encode(
-                    &img.to_rgba8(),
-                    img.width(),
-                    img.height(),
-                    ExtendedColorType::Rgba8,
-                ) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        return Err(format!("Failed to encode WebP: {e}"));
-                    }
+
+            let output_path = if is_output_a_directory {
+                let file_name_without_path_and_extension = Path::new(&file)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("output");
+
+                let file_name_without_path_and_extension =
+                    format!("{}_compressed", file_name_without_path_and_extension);
+
+                let extension = match format {
+                    OutputFormat::Jpeg => "jpg",
+                    OutputFormat::Png => "png",
+                    OutputFormat::Gif => "gif",
+                    OutputFormat::WebP => "webp",
                 };
-            }
-            OutputFormat::Png => {
-                match img.write_to(&mut output, ImageFormat::Png) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        return Err(format!("Failed to encode PNG: {e}"));
-                    }
-                };
-            }
-            OutputFormat::Gif => {
-                match img.write_to(&mut output, ImageFormat::Gif) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        return Err(format!("Failed to encode GIF: {e}"));
-                    }
-                };
+
+                format!(
+                    "{}/{}.{}",
+                    output_path, file_name_without_path_and_extension, extension
+                )
+            } else {
+                output_path.to_string()
+            };
+
+            let mut output = match File::create(output_path) {
+                Ok(f) => f,
+                Err(e) => {
+                    return Err(format!("Failed to create output file: {e}"));
+                }
+            };
+
+            match format {
+                OutputFormat::Jpeg => {
+                    let mut encoder =
+                        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut output, quality);
+                    match encoder.encode_image(&img) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            return Err(format!("Failed to encode JPEG: {e}"));
+                        }
+                    };
+                }
+                OutputFormat::WebP => {
+                    let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut output);
+                    match encoder.encode(
+                        &img.to_rgba8(),
+                        img.width(),
+                        img.height(),
+                        ExtendedColorType::Rgba8,
+                    ) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            return Err(format!("Failed to encode WebP: {e}"));
+                        }
+                    };
+                }
+                OutputFormat::Png => {
+                    match img.write_to(&mut output, ImageFormat::Png) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            return Err(format!("Failed to encode PNG: {e}"));
+                        }
+                    };
+                }
+                OutputFormat::Gif => {
+                    match img.write_to(&mut output, ImageFormat::Gif) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            return Err(format!("Failed to encode GIF: {e}"));
+                        }
+                    };
+                }
             }
         }
 
         Ok(())
+    }
+
+    /// Recursively lists all files in a directory.
+    ///
+    /// # Arguments
+    ///
+    /// * `dir` - The path to the directory.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the directory cannot be read.
+    ///
+    /// # Returns
+    ///
+    /// A vector of file paths as strings.
+    fn list_files_recursively(&self, dir: &Path) -> std::io::Result<Vec<String>> {
+        let mut files = Vec::new();
+        if dir.is_dir() {
+            for entry in fs::read_dir(dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.is_dir() {
+                    files.extend(self.list_files_recursively(&path)?);
+                } else {
+                    files.push(path.to_string_lossy().into_owned());
+                }
+            }
+        }
+        Ok(files)
     }
 
     /// Loads an SVG file and converts it to a `DynamicImage`.
