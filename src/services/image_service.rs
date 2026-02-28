@@ -26,6 +26,15 @@ impl OutputFormat {
 }
 
 impl ImageService {
+    /// Initialize a new ImageService
+    ///
+    /// # Returns
+    ///
+    /// A new instance of ImageService
+    pub fn new() -> Self {
+        ImageService
+    }
+
     /// Compresses an image with the given parameters.
     ///
     /// # Arguments

@@ -15,7 +15,7 @@ rfd = "0.17.2"
 anyhow = "1.0"
 resvg = "0.47.0"
 tiny-skia = "0.12.0"
-iced_aw = { version = "0.13.0", features = ["badge"] }
+iced_aw = { version = "0.13.1", features = ["badge"] }
 tokio = "1.49.0"
 
 [profile.release]
