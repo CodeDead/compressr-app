@@ -61,8 +61,12 @@ impl ImageService {
         quality: u8,
         format: OutputFormat,
     ) -> Result<(), String> {
-        if input_path.is_empty() || output_path.is_empty() {
-            return Err("Input and output paths cannot be empty".to_string());
+        if input_path.is_empty() {
+            return Err("Input path cannot be empty".to_string());
+        }
+
+        if output_path.is_empty() {
+            return Err("Output path cannot be empty".to_string());
         }
 
         // Check if input path is a directory

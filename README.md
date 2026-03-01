@@ -31,6 +31,8 @@ Whether you're a professional photographer or just looking to save space on your
 - [tiny-skia](https://crates.io/crates/tiny-skia)
 - [iced_aw](https://crates.io/crates/iced_aw)
 - [tokio](https://crates.io/crates/tokio)
+- [serde](https://crates.io/crates/serde)
+- [serde_json](https://crates.io/crates/serde_json)
 
 ## About
 

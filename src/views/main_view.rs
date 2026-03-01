@@ -98,7 +98,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 .width(Length::FillPortion(3)),
             container(browse_output_button).width(Length::Shrink),
         ],
-        row![text("Format: "), space::horizontal(), format_pick_list,],
+        row![text("Format:"), space::horizontal(), format_pick_list,],
         row![
             container(text("Quality:")).width(Length::FillPortion(1)),
             container(quality_slider).width(Length::FillPortion(3)),
@@ -106,7 +106,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
         ]
         .spacing(10),
         row![
-            container(text("Scale: ")).width(Length::FillPortion(1)),
+            container(text("Scale:")).width(Length::FillPortion(1)),
             container(scale_slider).width(Length::FillPortion(3)),
             container(text(state.scale.to_string() + "%")).width(Length::Shrink),
         ]

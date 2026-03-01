@@ -1,7 +1,11 @@
+use iced::Theme;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct Settings {
     pub auto_update: bool,
     pub update_server: String,
-    pub theme: String,
+    pub theme: Option<String>,
     pub delete_files_after_compression: bool,
 }
 
@@ -10,7 +14,7 @@ impl Default for Settings {
         Self {
             auto_update: true,
             update_server: "https://codedead.com/Software/compressr/version.json".to_string(),
-            theme: "Oxocarbon".to_string(),
+            theme: Some(Theme::Oxocarbon.to_string()),
             delete_files_after_compression: false,
         }
     }
@@ -32,7 +36,7 @@ impl Settings {
     pub fn new(
         auto_update: bool,
         update_server: String,
-        theme: String,
+        theme: Option<String>,
         delete_files_after_compression: bool,
     ) -> Self {
         Self {

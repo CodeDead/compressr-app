@@ -1,5 +1,6 @@
 use crate::components::state::State;
 use crate::services::image_service::{ImageService, OutputFormat};
+use crate::services::theme_service::ThemeService;
 use crate::views::{main_view, settings_view};
 use iced::widget::space;
 use iced::window::Position;
@@ -34,6 +35,11 @@ pub enum Message {
     IgnoreQuality(u8),
     IgnoreScale(u32),
     IgnoreFormatSelected(OutputFormat),
+    AutoUpdateToggled(bool),
+    DeleteFilesAfterCompressionToggled(bool),
+    ThemeChanged(Theme),
+    ClearStatus,
+    ResetSettings,
 }
 
 pub struct App {
@@ -50,7 +56,7 @@ impl App {
             .expect("Failed to load window icon");
 
         let settings = window::Settings {
-            size: Size::new(650.0, 400.0),
+            size: Size::new(650.0, 425.0),
             resizable: true,
             position: Position::Centered,
             transparent: true,
@@ -86,13 +92,35 @@ impl App {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::MainViewOpened(id) => {
-                let window = Window::new("Compressr".to_string(), 0);
+                let window = Window::new(
+                    "Compressr".to_string(),
+                    0,
+                    ThemeService::string_to_theme(
+                        &self
+                            .state
+                            .settings
+                            .theme
+                            .clone()
+                            .unwrap_or(Theme::Oxocarbon.to_string()),
+                    ),
+                );
 
                 self.windows.insert(id, window);
                 Task::none()
             }
             Message::SettingsViewOpened(id) => {
-                let window = Window::new("Compressr - Settings".to_string(), 1);
+                let window = Window::new(
+                    "Compressr - Settings".to_string(),
+                    1,
+                    ThemeService::string_to_theme(
+                        &self
+                            .state
+                            .settings
+                            .theme
+                            .clone()
+                            .unwrap_or(Theme::Oxocarbon.to_string()),
+                    ),
+                );
 
                 self.windows.insert(id, window);
                 Task::none()
@@ -194,24 +222,22 @@ impl App {
                 self.state.is_compressing = false;
 
                 match e {
-                    Ok(_) => self.state.compression_succeeded = true,
-                    Err(err) => self.state.status = format!("Error: {err}"),
-                };
-
-                Task::none()
+                    Ok(_) => {
+                        self.state.compression_succeeded = true;
+                        Task::none()
+                    }
+                    Err(err) => {
+                        self.state.status = format!("Error: {err}");
+                        Task::perform(
+                            tokio::time::sleep(std::time::Duration::from_secs(10)),
+                            |_| Message::ClearStatus,
+                        )
+                    }
+                }
             }
-            Message::IgnoreQuality(_e) => {
-                /* No state change, used to prevent updates during slider dragging */
-                Task::none()
-            }
-            Message::IgnoreScale(_e) => {
-                /* No state change, used to prevent updates during slider dragging */
-                Task::none()
-            }
-            Message::IgnoreFormatSelected(_e) => {
-                /* No state change, used to prevent updates during pick list interaction */
-                Task::none()
-            }
+            Message::IgnoreQuality(_e) => Task::none(),
+            Message::IgnoreScale(_e) => Task::none(),
+            Message::IgnoreFormatSelected(_e) => Task::none(),
             Message::OpenSettings => {
                 let Some(last_window) = self.windows.keys().last() else {
                     return Task::none();
@@ -226,7 +252,7 @@ impl App {
                                 .expect("Failed to load window icon");
 
                         let settings = window::Settings {
-                            size: Size::new(300.0, 400.0),
+                            size: Size::new(450.0, 250.0),
                             resizable: true,
                             position: Position::Centered,
                             transparent: true,
@@ -245,6 +271,39 @@ impl App {
                         open
                     })
                     .map(Message::SettingsViewOpened)
+            }
+            Message::AutoUpdateToggled(auto_update) => {
+                self.state.settings.auto_update = auto_update;
+                Task::none()
+            }
+            Message::ThemeChanged(theme) => {
+                self.windows
+                    .values_mut()
+                    .for_each(|window| window.theme = theme.clone());
+                self.state.settings.theme = Some(theme.to_string());
+                Task::none()
+            }
+            Message::DeleteFilesAfterCompressionToggled(delete) => {
+                self.state.settings.delete_files_after_compression = delete;
+                Task::none()
+            }
+            Message::ClearStatus => {
+                self.state.status.clear();
+                Task::none()
+            }
+            Message::ResetSettings => {
+                self.state.settings = crate::components::settings::Settings::default();
+                self.windows.values_mut().for_each(|window| {
+                    window.theme = ThemeService::string_to_theme(
+                        &self
+                            .state
+                            .settings
+                            .theme
+                            .clone()
+                            .unwrap_or(Theme::Oxocarbon.to_string()),
+                    )
+                });
+                Task::none()
             }
         }
     }
@@ -278,11 +337,11 @@ impl App {
 }
 
 impl Window {
-    fn new(title: String, window_id: u8) -> Self {
+    fn new(title: String, window_id: u8, theme: Theme) -> Self {
         Self {
             title,
             current_scale: 1.0,
-            theme: Theme::Oxocarbon,
+            theme,
             window_id,
         }
     }
