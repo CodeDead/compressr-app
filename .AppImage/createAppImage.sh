@@ -16,7 +16,14 @@ OUTPUT_APPIMAGE="${TARGET_DIR}/${APP_NAME}-x86_64-${VERSION}.AppImage"
 rm -rf "$TARGET_DIR"
 
 # Download appimagetool
-wget -q "$APPIMAGE_TOOL_URL" -O "$APPIMAGE_TOOL"
+if command -v wget >/dev/null 2>&1; then
+    wget -q "$APPIMAGE_TOOL_URL" -O "$APPIMAGE_TOOL"
+elif command -v curl >/dev/null 2>&1; then
+    curl -LsS "$APPIMAGE_TOOL_URL" -o "$APPIMAGE_TOOL"
+else
+    echo "Error: neither 'wget' nor 'curl' is installed; cannot download appimagetool." >&2
+    exit 1
+fi
 chmod a+x "$APPIMAGE_TOOL"
 
 # Prepare target directory
@@ -24,7 +31,7 @@ mkdir -p "$TARGET_DIR"
 mkdir -p "$APP_DIR/usr/bin"
 
 # Copy resources
-cp -r "${BASEDIR}/.AppDir/"* "$APP_DIR/"
+cp -r "${BASEDIR}/.AppDir/." "$APP_DIR/"
 cp "${PARENT_DIR}/target/release/compressr-app" "$APP_DIR/usr/bin/"
 
 # Build AppImage

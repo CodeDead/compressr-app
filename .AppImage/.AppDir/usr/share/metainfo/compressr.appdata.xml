@@ -4,17 +4,17 @@
     <metadata_license>FSFAP</metadata_license>
     <project_license>GPL-3.0-only</project_license>
     <name>Compressr</name>
-    <summary>
-        Compressr is a free and open source image compression tool that can be used to reduce the file size of images without losing quality.
-    </summary>
+    <summary>Free and open source image compression tool</summary>
 
     <description>
         <p>
-            Compressr is a free and open source image compression tool that can be used to reduce the file size of images without losing quality.
+            Compressr is a free and open source image compression tool that can be used to reduce the file size of
+            images without losing quality.
         </p>
         <p>
             It supports a wide range of image formats, including JPEG, PNG, GIF, and WebP.
-            Compressr uses advanced algorithms to compress images while maintaining their quality. It also has a user-friendly interface that makes it easy to use for both beginners and advanced users.
+            Compressr uses advanced algorithms to compress images while maintaining their quality. It also has a
+            user-friendly interface that makes it easy to use for both beginners and advanced users.
         </p>
     </description>
 
