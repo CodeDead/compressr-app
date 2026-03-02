@@ -3,6 +3,15 @@ use iced::Theme;
 pub struct ThemeService;
 
 impl ThemeService {
+    /// Converts a theme name string to a Theme enum variant.
+    ///
+    /// # Arguments
+    ///
+    /// * `theme_str`: A string slice representing the theme name.
+    ///
+    /// # Returns
+    ///
+    /// A Theme enum variant corresponding to the provided theme name. If the theme name is not recognized, it defaults to Theme::Dark.
     pub fn string_to_theme(theme_str: &str) -> Theme {
         match theme_str {
             "Light" => Theme::Light,

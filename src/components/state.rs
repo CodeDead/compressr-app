@@ -16,6 +16,11 @@ pub struct State {
 }
 
 impl Default for State {
+    /// Provides default values for the application state.
+    ///
+    /// # Returns
+    ///
+    /// A State instance with default values.
     fn default() -> Self {
         State {
             input_path: String::new(),
@@ -28,7 +33,7 @@ impl Default for State {
             is_compressing: false,
             compression_succeeded: false,
             status: String::new(),
-            settings: Settings::default(),
+            settings: Settings::load_from_file(),
         }
     }
 }

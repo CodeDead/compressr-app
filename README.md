@@ -33,6 +33,8 @@ Whether you're a professional photographer or just looking to save space on your
 - [tokio](https://crates.io/crates/tokio)
 - [serde](https://crates.io/crates/serde)
 - [serde_json](https://crates.io/crates/serde_json)
+- [log](https://crates.io/crates/log)
+- [env_logger](https://crates.io/crates/env_logger)
 
 ## About
 

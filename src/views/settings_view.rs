@@ -4,6 +4,15 @@ use crate::services::theme_service::ThemeService;
 use iced::widget::{button, checkbox, container, pick_list, row, space, text};
 use iced::{Element, Length, Theme, color};
 
+/// Builds the settings view of the application, allowing users to adjust preferences such as auto-update, file deletion after compression, and theme selection.
+///
+/// # Arguments
+///
+/// * `state` - A reference to the current application state, which contains the user's settings and preferences.
+///
+/// # Returns
+///
+/// An Element representing the settings view of the application, which can be rendered by the Iced framework.
 pub fn view(state: &State) -> Element<'_, Message> {
     let header = iced::widget::column![row![
         container(iced::widget::column![row![

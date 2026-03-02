@@ -46,6 +46,7 @@ impl ImageService {
     /// * `height` - The desired height of the output image (optional).
     /// * `quality` - The quality of the output image (0-100).
     /// * `format` - The output format of the image.
+    /// * `delete_original` - Whether to delete the original image after compression.
     ///
     /// # Errors
     ///
@@ -60,6 +61,7 @@ impl ImageService {
         height: Option<u32>,
         quality: u8,
         format: OutputFormat,
+        delete_original: bool,
     ) -> Result<(), String> {
         if input_path.is_empty() {
             return Err("Input path cannot be empty".to_string());
@@ -85,9 +87,14 @@ impl ImageService {
             files.push(input_path.to_string());
         }
 
-        let is_output_a_directory = fs::metadata(output_path)
-            .map_err(|e| format!("Failed to read output path metadata: {e}"))?
-            .is_dir();
+        let mut is_output_a_directory = false;
+
+        // Check if output path already exists
+        if fs::metadata(output_path).is_ok() {
+            is_output_a_directory = fs::metadata(output_path)
+                .map_err(|e| format!("Failed to read output path metadata: {e}"))?
+                .is_dir();
+        }
 
         for file in files {
             let mut img = if file.ends_with(".svg") {
@@ -193,6 +200,10 @@ impl ImageService {
                         }
                     };
                 }
+            }
+
+            if delete_original && let Err(e) = fs::remove_file(&file) {
+                return Err(format!("Failed to delete original file: {e}"));
             }
         }
 
