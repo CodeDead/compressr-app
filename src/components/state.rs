@@ -1,3 +1,4 @@
+use crate::components::settings::Settings;
 use crate::services::image_service::OutputFormat;
 
 pub struct State {
@@ -11,9 +12,15 @@ pub struct State {
     pub is_compressing: bool,
     pub compression_succeeded: bool,
     pub status: String,
+    pub settings: Settings,
 }
 
 impl Default for State {
+    /// Provides default values for the application state.
+    ///
+    /// # Returns
+    ///
+    /// A State instance with default values.
     fn default() -> Self {
         State {
             input_path: String::new(),
@@ -26,6 +33,7 @@ impl Default for State {
             is_compressing: false,
             compression_succeeded: false,
             status: String::new(),
+            settings: Settings::load_from_file(),
         }
     }
 }

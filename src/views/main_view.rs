@@ -7,6 +7,15 @@ use iced::{Element, Length, color};
 use iced_aw::{helpers::badge, style};
 
 impl std::fmt::Display for OutputFormat {
+    /// Formats the OutputFormat enum as a user-friendly string for display in the UI.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the string representation to.
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating whether the formatting was successful.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             OutputFormat::Jpeg => write!(f, "JPEG"),
@@ -16,6 +25,16 @@ impl std::fmt::Display for OutputFormat {
         }
     }
 }
+
+/// Builds the main view of the application, displaying the current state and providing controls for user interaction.
+///
+/// # Arguments
+///
+/// * `state` - A reference to the current application state, which contains information about the input/output paths, compression settings, and status.
+///
+/// # Returns
+///
+/// An Element representing the main view of the application, which can be rendered by the Iced framework.
 pub fn view(state: &State) -> Element<'_, Message> {
     let bytes = include_bytes!("../../resources/settings.png");
     let handle = image_widget::Handle::from_bytes(bytes.as_slice());
@@ -98,7 +117,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 .width(Length::FillPortion(3)),
             container(browse_output_button).width(Length::Shrink),
         ],
-        row![text("Format: "), space::horizontal(), format_pick_list,],
+        row![text("Format:"), space::horizontal(), format_pick_list,],
         row![
             container(text("Quality:")).width(Length::FillPortion(1)),
             container(quality_slider).width(Length::FillPortion(3)),
@@ -106,7 +125,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
         ]
         .spacing(10),
         row![
-            container(text("Scale: ")).width(Length::FillPortion(1)),
+            container(text("Scale:")).width(Length::FillPortion(1)),
             container(scale_slider).width(Length::FillPortion(3)),
             container(text(state.scale.to_string() + "%")).width(Length::Shrink),
         ]
