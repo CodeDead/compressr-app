@@ -62,7 +62,7 @@ impl Settings {
 
     /// Saves the current settings to a config file. If serialization or file writing fails, it logs an error.
     pub fn save(&self) {
-        match serde_json::to_string_pretty(self) {
+        match serde_json::to_string(self) {
             Ok(json) => {
                 if let Err(e) = fs::write("config.json", json) {
                     error!("Failed to write settings to config.json: {e}");
