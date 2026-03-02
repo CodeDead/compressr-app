@@ -21,6 +21,40 @@ Whether you're a professional photographer or just looking to save space on your
 - User-friendly interface: Easy to navigate and use for all skill levels.
 - Support for various image formats: JPEG, PNG, GIF, and more.
 
+## Building and Running the Application
+
+To build the Compressr app, follow these steps:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/CodeDead/compressr-app.git
+    ```
+2. Navigate to the project directory:
+   ```bash
+   cd compressr-app
+   ```
+3. Build the application using Cargo:
+   ```bash
+   cargo build --release
+   ```
+4. The compiled binary will be located in the `target/release` directory. You can run it directly from there or create a shortcut for easier access.
+5. To run the application, use the following command:
+   ```bash
+   cargo run --release
+   ```
+   
+### AppImage
+
+To create an AppImage for Compressr, you can use the included Makefile. Run the following command in the project directory:
+```bash
+make release
+```
+This will generate an AppImage in the `target/release/AppImage` directory, which you can distribute and run on any compatible Linux system without needing to install it.
+
+Optionally, you can pass a version argument to the Makefile to specify the version of the AppImage:
+```bash
+make release VERSION=1.0.0
+```
+
 ## Dependencies
 
 - [iced](https://github.com/iced-rs/iced)
