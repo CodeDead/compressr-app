@@ -26,7 +26,7 @@ impl Default for Settings {
         };
 
         // Save the default settings to a config file
-        match serde_json::to_string_pretty(&res) {
+        match serde_json::to_string(&res) {
             Ok(json) => {
                 if let Err(e) = fs::write("config.json", json) {
                     error!("Failed to write default settings to config.json: {e}");
