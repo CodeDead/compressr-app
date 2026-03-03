@@ -4,6 +4,7 @@ use crate::services::theme_service::ThemeService;
 use crate::views::{main_view, settings_view};
 use iced::widget::space;
 use iced::window::Position;
+#[cfg(target_os = "linux")]
 use iced::window::settings::PlatformSpecific;
 use iced::{Element, Size, Subscription, Task, Theme, window};
 use log::{error, info};

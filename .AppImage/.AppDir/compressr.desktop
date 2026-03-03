@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Compressr
+Exec=compressr-app
+Icon=compressr
+Comment=Compressr is an image compression tool that allows you to easily reduce the file size of your images without sacrificing quality
+Type=Application
+Categories=Utility;
