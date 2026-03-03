@@ -1,6 +1,7 @@
 use crate::components::state::State;
 use crate::services::image_service::{ImageService, OutputFormat};
 use crate::services::theme_service::ThemeService;
+use crate::services::update_service::{UpdateInfo, UpdateService};
 use crate::views::{main_view, settings_view};
 use iced::widget::space;
 use iced::window::Position;
@@ -42,12 +43,15 @@ pub enum Message {
     ThemeChanged(Theme),
     ClearStatus,
     ResetSettings,
+    CheckForUpdates,
+    UpdateCheckCompleted(Result<Option<UpdateInfo>, String>),
 }
 
 pub struct App {
     pub windows: BTreeMap<window::Id, Window>,
     pub state: State,
     pub image_service: ImageService,
+    pub update_service: UpdateService,
 }
 
 impl App {
@@ -87,12 +91,15 @@ impl App {
             ..window::Settings::default()
         };
 
+        let state = State::default();
+        let update_server = state.settings.update_server.clone();
         let (_, open) = window::open(settings);
         (
             Self {
                 windows: BTreeMap::new(),
-                state: State::default(),
+                state,
                 image_service: ImageService::new(),
+                update_service: UpdateService::new(update_server),
             },
             open.map(Message::MainViewOpened),
         )
@@ -140,6 +147,39 @@ impl App {
                 );
 
                 self.windows.insert(id, window);
+
+                // If auto-update is enabled, check for updates when the main view is opened
+                if self.state.settings.auto_update {
+                    let current_semver = env!("CARGO_PKG_VERSION").to_string();
+                    let platform = if cfg!(target_os = "windows") {
+                        "windows"
+                    } else if cfg!(target_os = "macos") {
+                        "macos"
+                    } else {
+                        "linux"
+                    }
+                    .to_string();
+
+                    let arch = if cfg!(target_arch = "x86_64") {
+                        "x64"
+                    } else if cfg!(target_arch = "aarch64") {
+                        "aarch64"
+                    } else {
+                        "unknown"
+                    }
+                    .to_string();
+
+                    let update_service = self.update_service.clone();
+                    return Task::perform(
+                        async move {
+                            update_service
+                                .check_for_updates(current_semver, platform, arch)
+                                .await
+                        },
+                        Message::UpdateCheckCompleted,
+                    );
+                }
+
                 Task::none()
             }
             Message::SettingsViewOpened(id) => {
@@ -348,6 +388,62 @@ impl App {
                             .unwrap_or(Theme::Oxocarbon.to_string()),
                     )
                 });
+
+                Task::none()
+            }
+            Message::CheckForUpdates => {
+                let current_semver = env!("CARGO_PKG_VERSION").to_string();
+                let platform = if cfg!(target_os = "windows") {
+                    "windows"
+                } else if cfg!(target_os = "macos") {
+                    "macos"
+                } else {
+                    "linux"
+                }
+                .to_string();
+
+                let arch = if cfg!(target_arch = "x86_64") {
+                    "x64"
+                } else if cfg!(target_arch = "aarch64") {
+                    "aarch64"
+                } else {
+                    "unknown"
+                }
+                .to_string();
+
+                let update_service = self.update_service.clone();
+                Task::perform(
+                    async move {
+                        update_service
+                            .check_for_updates(current_semver, platform, arch)
+                            .await
+                    },
+                    |result| Message::UpdateCheckCompleted(result),
+                )
+            }
+            Message::UpdateCheckCompleted(e) => {
+                match e {
+                    Ok(Some(update_info)) => {
+                        info!("Update available: {}", update_info.semver);
+
+                        self.state.update_available = true;
+                        self.state.update_version = Some(update_info.semver.clone());
+                        self.state.update_download_url = Some(update_info.download_url.clone());
+                        self.state.update_info_url = Some(update_info.info_url.clone());
+                    }
+                    Ok(None) => {
+                        info!("No updates available");
+
+                        self.state.update_available = false;
+                        self.state.update_version = None;
+                        self.state.update_download_url = None;
+                        self.state.update_info_url = None;
+                    }
+                    Err(err) => {
+                        error!("Failed to check for updates: {err}");
+                        self.state.status = format!("Error: {err}");
+                    }
+                }
 
                 Task::none()
             }

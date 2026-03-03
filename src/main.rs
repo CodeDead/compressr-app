@@ -1,4 +1,5 @@
 mod components;
+mod models;
 mod services;
 mod views;
 

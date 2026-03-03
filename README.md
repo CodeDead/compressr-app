@@ -69,6 +69,8 @@ make release VERSION=1.0.0
 - [serde_json](https://crates.io/crates/serde_json)
 - [log](https://crates.io/crates/log)
 - [env_logger](https://crates.io/crates/env_logger)
+- [reqwest](https://crates.io/crates/reqwest)
+- [semver](https://crates.io/crates/semver)
 
 ## About
 

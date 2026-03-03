@@ -13,6 +13,10 @@ pub struct State {
     pub compression_succeeded: bool,
     pub status: String,
     pub settings: Settings,
+    pub update_available: bool,
+    pub update_version: Option<String>,
+    pub update_download_url: Option<String>,
+    pub update_info_url: Option<String>,
 }
 
 impl Default for State {
@@ -34,6 +38,10 @@ impl Default for State {
             compression_succeeded: false,
             status: String::new(),
             settings: Settings::load_from_file(),
+            update_available: false,
+            update_version: None,
+            update_download_url: None,
+            update_info_url: None,
         }
     }
 }
