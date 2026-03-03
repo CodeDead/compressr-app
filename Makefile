@@ -1,3 +1,3 @@
 release:
 	cargo build --release
-	sh .AppImage/createAppImage.sh "$$VERSION"
+	sh .AppImage/createAppImage.sh "$(VERSION)"
