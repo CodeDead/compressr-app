@@ -76,7 +76,7 @@ impl App {
             .expect("Failed to load window icon");
 
         let settings = window::Settings {
-            size: Size::new(650.0, 425.0),
+            size: Size::new(650.0, 400.0),
             resizable: true,
             position: Position::Centered,
             transparent: true,
@@ -333,7 +333,7 @@ impl App {
                                 .expect("Failed to load window icon");
 
                         let settings = window::Settings {
-                            size: Size::new(450.0, 250.0),
+                            size: Size::new(480.0, 240.0),
                             resizable: true,
                             position: Position::Centered,
                             transparent: true,

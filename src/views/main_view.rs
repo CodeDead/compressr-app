@@ -73,7 +73,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
     let header = iced::widget::column![row![
         container(iced::widget::column![row![
             text("Compressr")
-                .size(22)
+                .size(20)
                 .width(Length::Shrink)
                 .color(color!(255, 255, 255)),
             space::horizontal().width(Length::Fill),
@@ -170,7 +170,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
     .spacing(15)
     .padding(15);
 
-    let together = iced::widget::column![header, content].spacing(10);
+    let together = iced::widget::column![header, content];
 
     container(together)
         .width(Length::Fill)
