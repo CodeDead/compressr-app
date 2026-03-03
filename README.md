@@ -42,7 +42,7 @@ To build the Compressr app, follow these steps:
    cargo run --release
    ```
    
-### AppImage
+### AppImage (Linux only)
 
 To create an AppImage for Compressr, you can use the included Makefile. Run the following command in the project directory:
 ```bash

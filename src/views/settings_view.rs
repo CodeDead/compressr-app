@@ -3,6 +3,7 @@ use crate::components::state::State;
 use crate::services::theme_service::ThemeService;
 use iced::widget::{button, checkbox, container, pick_list, row, space, text};
 use iced::{Element, Length, Theme, color};
+use crate::components::header::get_header;
 
 /// Builds the settings view of the application, allowing users to adjust preferences such as auto-update, file deletion after compression, and theme selection.
 ///
@@ -14,30 +15,7 @@ use iced::{Element, Length, Theme, color};
 ///
 /// An Element representing the settings view of the application, which can be rendered by the Iced framework.
 pub fn view(state: &State) -> Element<'_, Message> {
-    let header = iced::widget::column![row![
-        container(iced::widget::column![row![
-            text("Compressr - Settings")
-                .size(20)
-                .width(Length::Shrink)
-                .color(color!(255, 255, 255)),
-            space::horizontal().width(Length::Fill),
-        ]])
-        .center_y(Length::Fill)
-        .width(Length::Fill)
-        .height(50)
-        .padding(10)
-        .style(|_| container::Style {
-            text_color: Default::default(),
-            background: Some(iced::Background::Color(color!(48, 48, 48, 0.8))),
-            border: Default::default(),
-            shadow: iced::Shadow {
-                color: color!(0, 0, 0, 0.2),
-                offset: iced::Vector::new(0.0, 2.0),
-                blur_radius: 5.0,
-            },
-            snap: false,
-        })
-    ]];
+    let header = get_header("Compressr - Settings".to_string(), color!(48, 48, 48, 0.8));
 
     let content = iced::widget::column![
         row![

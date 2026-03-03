@@ -1,4 +1,6 @@
 use crate::models::version::Version;
+use log::error;
+use std::process::Command;
 
 #[derive(Clone)]
 pub struct UpdateService {
@@ -76,7 +78,37 @@ impl UpdateService {
                 Ok(None) // No update available
             }
         } else {
-            Err(format!("Failed to fetch version info: HTTP {}", response.status()).into())
+            Err(format!("Failed to fetch version info: HTTP {}", response.status()))
         }
+    }
+
+    /// Opens the specified URL in the default web browser.
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - The URL to open in the web browser.
+    ///
+    /// # Returns
+    ///
+    /// Ok(()) if the URL was successfully opened, or an error message if it failed.
+    pub fn open_website(url: &str) -> Result<(), String> {
+        let result = match std::env::consts::OS {
+            "windows" => Command::new(url).spawn(),
+            "macos" => Command::new("open").arg(url).spawn(),
+            "linux" => Command::new("xdg-open").arg(url).spawn(),
+            _ => {
+                return Err(format!(
+                    "Error: Unsupported platform {}",
+                    std::env::consts::OS
+                ));
+            }
+        };
+
+        if let Err(err) = result {
+            error!("Failed to open update download URL: {err}");
+            return Err(format!("Error: {}", err));
+        }
+
+        Ok(())
     }
 }

@@ -2,7 +2,7 @@ use crate::components::state::State;
 use crate::services::image_service::{ImageService, OutputFormat};
 use crate::services::theme_service::ThemeService;
 use crate::services::update_service::{UpdateInfo, UpdateService};
-use crate::views::{main_view, settings_view};
+use crate::views::{error_view, main_view, settings_view, update_view};
 use iced::widget::space;
 use iced::window::Position;
 #[cfg(target_os = "linux")]
@@ -23,7 +23,7 @@ pub struct Window {
 #[derive(Debug, Clone)]
 pub enum Message {
     MainViewOpened(window::Id),
-    SettingsViewOpened(window::Id),
+    ViewOpened(String, u8, window::Id),
     WindowClosed(window::Id),
     SelectInput,
     SelectOutput,
@@ -41,10 +41,13 @@ pub enum Message {
     AutoUpdateToggled(bool),
     DeleteFilesAfterCompressionToggled(bool),
     ThemeChanged(Theme),
-    ClearStatus,
     ResetSettings,
     CheckForUpdates,
     UpdateCheckCompleted(Result<Option<UpdateInfo>, String>),
+    OpenUpdateInformation,
+    DownloadUpdate,
+    CloseErrorView,
+    OpenErrorView,
 }
 
 pub struct App {
@@ -55,6 +58,96 @@ pub struct App {
 }
 
 impl App {
+    /// Load the application icon from embedded bytes and create an `Icon` instance for use in window settings.
+    ///
+    /// # Returns
+    ///
+    /// An `Icon` instance created from the embedded icon bytes, ready to be used in window settings. This function will panic if the icon cannot be loaded successfully.
+    fn load_icon() -> window::icon::Icon {
+        let icon_bytes = include_bytes!("../../resources/compressr.png");
+        let image = image::load_from_memory(icon_bytes).unwrap();
+        window::icon::from_rgba(image.as_bytes().to_vec(), 256, 256)
+            .expect("Failed to load window icon")
+    }
+
+    /// Get the current platform as a string, used for update checks and other platform-specific logic.
+    ///
+    /// # Returns
+    ///
+    /// A `String` representing the current platform, which can be "windows", "macos", or "linux". This function uses compile-time configuration to determine the platform and will return "unknown" if the platform cannot be determined.
+    fn get_platform() -> String {
+        if cfg!(target_os = "windows") {
+            "windows"
+        } else if cfg!(target_os = "macos") {
+            "macos"
+        } else {
+            "linux"
+        }
+        .to_string()
+    }
+
+    /// Get the current architecture as a string, used for update checks and other architecture-specific logic.
+    ///
+    /// # Returns
+    ///
+    /// A `String` representing the current architecture, which can be "x64", "aarch64", or "unknown". This function uses compile-time configuration to determine the architecture and will return "unknown" if the architecture cannot be determined.
+    fn get_arch() -> String {
+        if cfg!(target_arch = "x86_64") {
+            "x64"
+        } else if cfg!(target_arch = "aarch64") {
+            "aarch64"
+        } else {
+            "unknown"
+        }
+        .to_string()
+    }
+
+    /// Create window settings with specified size and icon, along with other default settings for the application windows.
+    ///
+    /// # Arguments
+    ///
+    /// * `size` - A tuple containing the width and height of the window in pixels.
+    /// * `icon` - An `Icon` instance to be used as the window icon
+    ///
+    /// # Returns
+    ///
+    /// A `window::Settings` instance configured with the specified size, icon, and other default settings such as resizability, transparency, and decorations.
+    /// This function also includes platform-specific settings for Linux, such as the application ID.
+    /// The returned settings can be used when opening new windows in the application.
+    fn create_window_settings(size: (f32, f32), icon: window::icon::Icon) -> window::Settings {
+        window::Settings {
+            size: Size::new(size.0, size.1),
+            resizable: true,
+            position: Position::Centered,
+            transparent: true,
+            decorations: true,
+            blur: true,
+            icon: Some(icon),
+            #[cfg(target_os = "linux")]
+            platform_specific: PlatformSpecific {
+                application_id: "com.codedead.compressr".to_string(),
+                ..PlatformSpecific::default()
+            },
+            ..window::Settings::default()
+        }
+    }
+
+    /// Finds the window ID associated with a given internal window identifier.
+    ///
+    /// # Arguments
+    ///
+    /// * `target_id` - The internal window identifier to search for.
+    ///
+    /// # Returns
+    ///
+    /// An `Option<window::Id>` containing the window ID if found, or `None` if no window with the specified internal identifier exists in the `windows` map.
+    fn find_window_by_id(&self, target_id: u8) -> Option<window::Id> {
+        self.windows
+            .iter()
+            .find(|(_, window)| window.window_id == target_id)
+            .map(|(id, _)| *id)
+    }
+
     /// Initialize a new instance of the application, returning both the app and an initial task to open the main view.
     ///
     /// This method sets up the application window with specific settings, including size, transparency, and an icon. It also initializes the application state and image service.
@@ -70,26 +163,8 @@ impl App {
     pub fn new() -> (Self, Task<Message>) {
         info!("Initializing new App");
 
-        let icon_bytes = include_bytes!("../../resources/compressr.png");
-        let image = image::load_from_memory(icon_bytes).unwrap();
-        let window_icon = window::icon::from_rgba(image.as_bytes().to_vec(), 256, 256)
-            .expect("Failed to load window icon");
-
-        let settings = window::Settings {
-            size: Size::new(650.0, 400.0),
-            resizable: true,
-            position: Position::Centered,
-            transparent: true,
-            decorations: true,
-            blur: true,
-            icon: Some(window_icon),
-            #[cfg(target_os = "linux")]
-            platform_specific: PlatformSpecific {
-                application_id: "com.codedead.compressr".to_string(),
-                ..PlatformSpecific::default()
-            },
-            ..window::Settings::default()
-        };
+        let window_icon = Self::load_icon();
+        let settings = Self::create_window_settings((650.0, 375.0), window_icon);
 
         let state = State::default();
         let update_server = state.settings.update_server.clone();
@@ -151,23 +226,8 @@ impl App {
                 // If auto-update is enabled, check for updates when the main view is opened
                 if self.state.settings.auto_update {
                     let current_semver = env!("CARGO_PKG_VERSION").to_string();
-                    let platform = if cfg!(target_os = "windows") {
-                        "windows"
-                    } else if cfg!(target_os = "macos") {
-                        "macos"
-                    } else {
-                        "linux"
-                    }
-                    .to_string();
-
-                    let arch = if cfg!(target_arch = "x86_64") {
-                        "x64"
-                    } else if cfg!(target_arch = "aarch64") {
-                        "aarch64"
-                    } else {
-                        "unknown"
-                    }
-                    .to_string();
+                    let platform = Self::get_platform();
+                    let arch = Self::get_arch();
 
                     let update_service = self.update_service.clone();
                     return Task::perform(
@@ -182,10 +242,10 @@ impl App {
 
                 Task::none()
             }
-            Message::SettingsViewOpened(id) => {
+            Message::ViewOpened(title, inner_id, id) => {
                 let window = Window::new(
-                    "Compressr - Settings".to_string(),
-                    1,
+                    title,
+                    inner_id,
                     ThemeService::string_to_theme(
                         &self
                             .state
@@ -306,11 +366,8 @@ impl App {
                 if let Err(err) = e {
                     error!("Compression failed: {err}");
 
-                    self.state.status = format!("Error: {err}");
-                    return Task::perform(
-                        tokio::time::sleep(std::time::Duration::from_secs(10)),
-                        |_| Message::ClearStatus,
-                    );
+                    self.state.last_error_message = Some(err);
+                    return Task::perform(async {}, |_| Message::OpenErrorView);
                 };
 
                 self.state.compression_succeeded = true;
@@ -319,39 +376,41 @@ impl App {
             Message::IgnoreQuality(_e) => Task::none(),
             Message::IgnoreScale(_e) => Task::none(),
             Message::IgnoreFormatSelected(_e) => Task::none(),
+            Message::OpenErrorView => {
+                let Some(last_window) = self.windows.keys().last() else {
+                    return Task::none();
+                };
+
+                if self.windows.values().any(|w| w.window_id == 3) {
+                    return Task::none();
+                }
+
+                window::position(*last_window)
+                    .then(|_| {
+                        let window_icon = Self::load_icon();
+                        let settings = Self::create_window_settings((400.0, 190.0), window_icon);
+                        let (_, open) = window::open(settings);
+                        open
+                    })
+                    .map(|r| Message::ViewOpened("Compressr - Error".to_string(), 3, r))
+            }
             Message::OpenSettings => {
                 let Some(last_window) = self.windows.keys().last() else {
                     return Task::none();
                 };
 
+                if self.windows.values().any(|w| w.window_id == 1) {
+                    return Task::none();
+                }
+
                 window::position(*last_window)
                     .then(|_| {
-                        let icon_bytes = include_bytes!("../../resources/compressr.png");
-                        let image = image::load_from_memory(icon_bytes).unwrap();
-                        let window_icon =
-                            window::icon::from_rgba(image.as_bytes().to_vec(), 256, 256)
-                                .expect("Failed to load window icon");
-
-                        let settings = window::Settings {
-                            size: Size::new(480.0, 240.0),
-                            resizable: true,
-                            position: Position::Centered,
-                            transparent: true,
-                            decorations: true,
-                            blur: true,
-                            icon: Some(window_icon),
-                            #[cfg(target_os = "linux")]
-                            platform_specific: PlatformSpecific {
-                                application_id: "com.codedead.compressr".to_string(),
-                                ..PlatformSpecific::default()
-                            },
-                            ..window::Settings::default()
-                        };
-
+                        let window_icon = Self::load_icon();
+                        let settings = Self::create_window_settings((480.0, 240.0), window_icon);
                         let (_, open) = window::open(settings);
                         open
                     })
-                    .map(Message::SettingsViewOpened)
+                    .map(|r| Message::ViewOpened("Compressr - Settings".to_string(), 1, r))
             }
             Message::AutoUpdateToggled(auto_update) => {
                 self.state.settings.auto_update = auto_update;
@@ -360,20 +419,17 @@ impl App {
                 Task::none()
             }
             Message::ThemeChanged(theme) => {
+                let theme_str = theme.to_string();
                 self.windows
                     .values_mut()
                     .for_each(|window| window.theme = theme.clone());
-                self.state.settings.theme = Some(theme.to_string());
+                self.state.settings.theme = Some(theme_str);
                 self.state.settings.save();
                 Task::none()
             }
             Message::DeleteFilesAfterCompressionToggled(delete) => {
                 self.state.settings.delete_files_after_compression = delete;
                 self.state.settings.save();
-                Task::none()
-            }
-            Message::ClearStatus => {
-                self.state.status.clear();
                 Task::none()
             }
             Message::ResetSettings => {
@@ -392,24 +448,11 @@ impl App {
                 Task::none()
             }
             Message::CheckForUpdates => {
-                let current_semver = env!("CARGO_PKG_VERSION").to_string();
-                let platform = if cfg!(target_os = "windows") {
-                    "windows"
-                } else if cfg!(target_os = "macos") {
-                    "macos"
-                } else {
-                    "linux"
-                }
-                .to_string();
+                self.state.status.clear();
 
-                let arch = if cfg!(target_arch = "x86_64") {
-                    "x64"
-                } else if cfg!(target_arch = "aarch64") {
-                    "aarch64"
-                } else {
-                    "unknown"
-                }
-                .to_string();
+                let current_semver = env!("CARGO_PKG_VERSION").to_string();
+                let platform = Self::get_platform();
+                let arch = Self::get_arch();
 
                 let update_service = self.update_service.clone();
                 Task::perform(
@@ -418,7 +461,7 @@ impl App {
                             .check_for_updates(current_semver, platform, arch)
                             .await
                     },
-                    |result| Message::UpdateCheckCompleted(result),
+                    Message::UpdateCheckCompleted,
                 )
             }
             Message::UpdateCheckCompleted(e) => {
@@ -426,14 +469,41 @@ impl App {
                     Ok(Some(update_info)) => {
                         info!("Update available: {}", update_info.semver);
 
+                        self.state.last_error_message = None;
                         self.state.update_available = true;
                         self.state.update_version = Some(update_info.semver.clone());
                         self.state.update_download_url = Some(update_info.download_url.clone());
                         self.state.update_info_url = Some(update_info.info_url.clone());
+
+                        let Some(last_window) = self.windows.keys().last() else {
+                            return Task::none();
+                        };
+
+                        if self.windows.values().any(|w| w.window_id == 2) {
+                            return Task::none();
+                        }
+
+                        return window::position(*last_window)
+                            .then(|_| {
+                                let window_icon = Self::load_icon();
+                                let settings =
+                                    Self::create_window_settings((400.0, 180.0), window_icon);
+                                let (_, open) = window::open(settings);
+                                open
+                            })
+                            .map(|r| {
+                                Message::ViewOpened(
+                                    "Compressr - Update available".to_string(),
+                                    2,
+                                    r,
+                                )
+                            });
                     }
                     Ok(None) => {
                         info!("No updates available");
 
+                        self.state.status = "Latest version installed".to_string();
+                        self.state.last_error_message = None;
                         self.state.update_available = false;
                         self.state.update_version = None;
                         self.state.update_download_url = None;
@@ -441,8 +511,55 @@ impl App {
                     }
                     Err(err) => {
                         error!("Failed to check for updates: {err}");
-                        self.state.status = format!("Error: {err}");
+                        self.state.last_error_message = Some(err);
                     }
+                }
+
+                Task::none()
+            }
+            Message::OpenUpdateInformation => {
+                let info_url = self
+                    .state
+                    .update_info_url
+                    .clone()
+                    .unwrap_or("https://codedead.com/".to_string());
+
+                match UpdateService::open_website(&info_url) {
+                    Ok(_) => {
+                        info!("Opened update information URL successfully");
+                    }
+                    Err(err) => {
+                        error!("Failed to open update information URL: {err}");
+                        self.state.status = err;
+                    }
+                };
+
+                Task::none()
+            }
+            Message::DownloadUpdate => {
+                let download_url = &self
+                    .state
+                    .update_download_url
+                    .clone()
+                    .unwrap_or("https://codedead.com/".to_string());
+
+                match UpdateService::open_website(download_url) {
+                    Ok(_) => {
+                        info!("Opened update download URL successfully");
+                        std::process::exit(0);
+                    }
+                    Err(err) => {
+                        self.state.status = err;
+                    }
+                };
+
+                Task::none()
+            }
+            Message::CloseErrorView => {
+                // Get the window ID of the error view (window_id 3) and close it
+                if let Some(id) = self.find_window_by_id(3) {
+                    self.windows.remove(&id);
+                    return window::close(id);
                 }
 
                 Task::none()
@@ -464,6 +581,8 @@ impl App {
             match window.window_id {
                 0 => main_view::view(&self.state),
                 1 => settings_view::view(&self.state),
+                2 => update_view::view(&self.state),
+                3 => error_view::view(&self.state),
                 _ => space().into(),
             }
         } else {

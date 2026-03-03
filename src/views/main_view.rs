@@ -100,12 +100,6 @@ pub fn view(state: &State) -> Element<'_, Message> {
     ]];
     let content = iced::widget::column![
         row![
-            state
-                .status
-                .starts_with("Error")
-                .then(|| badge(Text::new(&state.status)).style(style::badge::danger)),
-        ],
-        row![
             container(text("Input:")).width(Length::FillPortion(1)),
             container(text_input("", &state.input_path).width(Length::Fill))
                 .width(Length::FillPortion(3)),
@@ -163,6 +157,10 @@ pub fn view(state: &State) -> Element<'_, Message> {
             state
                 .compression_succeeded
                 .then(|| badge(Text::new("Compressed!")).style(style::badge::success)),
+            state
+                .status
+                .starts_with("Latest version")
+                .then(|| badge(Text::new("Latest version installed")).style(style::badge::success)),
             space::horizontal(),
             compress_button,
         ],
