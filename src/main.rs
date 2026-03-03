@@ -1,4 +1,5 @@
 mod components;
+mod models;
 mod services;
 mod views;
 
@@ -20,4 +21,20 @@ fn main() -> iced::Result {
         .theme(App::theme)
         .scale_factor(App::scale_factor)
         .run()
+}
+
+/// Get the current platform as a string, used for update checks and other platform-specific logic.
+///
+/// # Returns
+///
+/// A `String` representing the current platform, which can be "windows", "macos", or "linux".
+pub(crate) fn get_platform() -> String {
+    if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else {
+        "linux"
+    }
+    .to_string()
 }

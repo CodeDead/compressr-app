@@ -73,7 +73,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
     let header = iced::widget::column![row![
         container(iced::widget::column![row![
             text("Compressr")
-                .size(22)
+                .size(20)
                 .width(Length::Shrink)
                 .color(color!(255, 255, 255)),
             space::horizontal().width(Length::Fill),
@@ -99,12 +99,6 @@ pub fn view(state: &State) -> Element<'_, Message> {
         })
     ]];
     let content = iced::widget::column![
-        row![
-            state
-                .status
-                .starts_with("Error")
-                .then(|| badge(Text::new(&state.status)).style(style::badge::danger)),
-        ],
         row![
             container(text("Input:")).width(Length::FillPortion(1)),
             container(text_input("", &state.input_path).width(Length::Fill))
@@ -163,6 +157,10 @@ pub fn view(state: &State) -> Element<'_, Message> {
             state
                 .compression_succeeded
                 .then(|| badge(Text::new("Compressed!")).style(style::badge::success)),
+            state
+                .status
+                .starts_with("Latest version")
+                .then(|| badge(Text::new("Latest version installed")).style(style::badge::success)),
             space::horizontal(),
             compress_button,
         ],
@@ -170,7 +168,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
     .spacing(15)
     .padding(15);
 
-    let together = iced::widget::column![header, content].spacing(10);
+    let together = iced::widget::column![header, content];
 
     container(together)
         .width(Length::Fill)

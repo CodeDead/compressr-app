@@ -1,4 +1,5 @@
 use crate::components::app::Message;
+use crate::components::header::get_header;
 use crate::components::state::State;
 use crate::services::theme_service::ThemeService;
 use iced::widget::{button, checkbox, container, pick_list, row, space, text};
@@ -14,30 +15,7 @@ use iced::{Element, Length, Theme, color};
 ///
 /// An Element representing the settings view of the application, which can be rendered by the Iced framework.
 pub fn view(state: &State) -> Element<'_, Message> {
-    let header = iced::widget::column![row![
-        container(iced::widget::column![row![
-            text("Compressr - Settings")
-                .size(22)
-                .width(Length::Shrink)
-                .color(color!(255, 255, 255)),
-            space::horizontal().width(Length::Fill),
-        ]])
-        .center_y(Length::Fill)
-        .width(Length::Fill)
-        .height(50)
-        .padding(10)
-        .style(|_| container::Style {
-            text_color: Default::default(),
-            background: Some(iced::Background::Color(color!(48, 48, 48, 0.8))),
-            border: Default::default(),
-            shadow: iced::Shadow {
-                color: color!(0, 0, 0, 0.2),
-                offset: iced::Vector::new(0.0, 2.0),
-                blur_radius: 5.0,
-            },
-            snap: false,
-        })
-    ]];
+    let header = get_header("Compressr - Settings".to_string(), color!(48, 48, 48, 0.8));
 
     let content = iced::widget::column![
         row![
@@ -68,6 +46,9 @@ pub fn view(state: &State) -> Element<'_, Message> {
         ]
         .spacing(20),
         row![
+            button("Check for updates")
+                .width(Length::Shrink)
+                .on_press(Message::CheckForUpdates),
             space::horizontal().width(Length::Fill),
             button("Reset to defaults")
                 .style(button::danger)
@@ -78,7 +59,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
     .spacing(15)
     .padding(15);
 
-    let together = iced::widget::column![header, content].spacing(10);
+    let together = iced::widget::column![header, content];
 
     container(together)
         .width(Length::Fill)
