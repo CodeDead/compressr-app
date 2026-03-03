@@ -1,9 +1,9 @@
 use crate::components::app::Message;
+use crate::components::header::get_header;
 use crate::components::state::State;
 use crate::services::theme_service::ThemeService;
 use iced::widget::{button, checkbox, container, pick_list, row, space, text};
 use iced::{Element, Length, Theme, color};
-use crate::components::header::get_header;
 
 /// Builds the settings view of the application, allowing users to adjust preferences such as auto-update, file deletion after compression, and theme selection.
 ///

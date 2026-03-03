@@ -1,8 +1,8 @@
 use crate::components::app::Message;
+use crate::components::header::get_header;
 use crate::components::state::State;
 use iced::widget::{button, container, row, space, text};
 use iced::{Element, Length, color};
-use crate::components::header::get_header;
 
 /// Builds the update view of the application, informing users about available updates and providing options to download or learn more about the new version.
 ///

@@ -78,7 +78,10 @@ impl UpdateService {
                 Ok(None) // No update available
             }
         } else {
-            Err(format!("Failed to fetch version info: HTTP {}", response.status()))
+            Err(format!(
+                "Failed to fetch version info: HTTP {}",
+                response.status()
+            ))
         }
     }
 

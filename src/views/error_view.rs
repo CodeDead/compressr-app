@@ -1,8 +1,8 @@
 use crate::components::app::Message;
+use crate::components::header::get_header;
 use crate::components::state::State;
 use iced::widget::{button, container, row, space, text};
 use iced::{Element, Length, color};
-use crate::components::header::get_header;
 
 /// Builds the error view of the application, informing users about error messages
 ///

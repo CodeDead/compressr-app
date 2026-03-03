@@ -1,6 +1,6 @@
-use iced::{color, Color, Length};
-use iced::widget::{container, row, space, text, Column};
 use crate::components::app::Message;
+use iced::widget::{Column, container, row, space, text};
+use iced::{Color, Length, color};
 
 /// Retrieve a header component for the application
 ///
