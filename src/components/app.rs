@@ -70,22 +70,6 @@ impl App {
             .expect("Failed to load window icon")
     }
 
-    /// Get the current platform as a string, used for update checks and other platform-specific logic.
-    ///
-    /// # Returns
-    ///
-    /// A `String` representing the current platform, which can be "windows", "macos", or "linux". This function uses compile-time configuration to determine the platform and will return "unknown" if the platform cannot be determined.
-    fn get_platform() -> String {
-        if cfg!(target_os = "windows") {
-            "windows"
-        } else if cfg!(target_os = "macos") {
-            "macos"
-        } else {
-            "linux"
-        }
-        .to_string()
-    }
-
     /// Get the current architecture as a string, used for update checks and other architecture-specific logic.
     ///
     /// # Returns
@@ -226,7 +210,7 @@ impl App {
                 // If auto-update is enabled, check for updates when the main view is opened
                 if self.state.settings.auto_update {
                     let current_semver = env!("CARGO_PKG_VERSION").to_string();
-                    let platform = Self::get_platform();
+                    let platform = crate::get_platform();
                     let arch = Self::get_arch();
 
                     let update_service = self.update_service.clone();
@@ -451,7 +435,7 @@ impl App {
                 self.state.status.clear();
 
                 let current_semver = env!("CARGO_PKG_VERSION").to_string();
-                let platform = Self::get_platform();
+                let platform = crate::get_platform();
                 let arch = Self::get_arch();
 
                 let update_service = self.update_service.clone();
@@ -470,7 +454,6 @@ impl App {
                         info!("Update available: {}", update_info.semver);
 
                         self.state.last_error_message = None;
-                        self.state.update_available = true;
                         self.state.update_version = Some(update_info.semver.clone());
                         self.state.update_download_url = Some(update_info.download_url.clone());
                         self.state.update_info_url = Some(update_info.info_url.clone());
@@ -504,7 +487,6 @@ impl App {
 
                         self.state.status = "Latest version installed".to_string();
                         self.state.last_error_message = None;
-                        self.state.update_available = false;
                         self.state.update_version = None;
                         self.state.update_download_url = None;
                         self.state.update_info_url = None;
@@ -512,6 +494,7 @@ impl App {
                     Err(err) => {
                         error!("Failed to check for updates: {err}");
                         self.state.last_error_message = Some(err);
+                        return Task::perform(async {}, |_| Message::OpenErrorView);
                     }
                 }
 
@@ -530,7 +513,8 @@ impl App {
                     }
                     Err(err) => {
                         error!("Failed to open update information URL: {err}");
-                        self.state.status = err;
+                        self.state.last_error_message = Some(err);
+                        return Task::perform(async {}, |_| Message::OpenErrorView);
                     }
                 };
 
@@ -549,11 +533,10 @@ impl App {
                         std::process::exit(0);
                     }
                     Err(err) => {
-                        self.state.status = err;
+                        self.state.last_error_message = Some(err);
+                        Task::perform(async {}, |_| Message::OpenErrorView)
                     }
-                };
-
-                Task::none()
+                }
             }
             Message::CloseErrorView => {
                 // Get the window ID of the error view (window_id 3) and close it

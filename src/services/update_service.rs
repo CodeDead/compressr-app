@@ -54,10 +54,12 @@ impl UpdateService {
                 .await
                 .map_err(|e| format!("Failed to parse version info: {e}"))?;
 
-            let version_parsed = semver::Version::parse(&version_info.semver.replace("v", ""))
-                .map_err(|e| format!("Failed to parse version semver: {e}"))?;
-            let current_semver_parsed = semver::Version::parse(&current_semver.replace("v", ""))
-                .map_err(|e| format!("Failed to parse current version semver: {e}"))?;
+            let version_parsed =
+                semver::Version::parse(&version_info.semver.trim_start_matches('v'))
+                    .map_err(|e| format!("Failed to parse version semver: {e}"))?;
+            let current_semver_parsed =
+                semver::Version::parse(&current_semver.trim_start_matches('v'))
+                    .map_err(|e| format!("Failed to parse current version semver: {e}"))?;
 
             if version_parsed > current_semver_parsed {
                 // Find the platform-specific download info
@@ -95,21 +97,18 @@ impl UpdateService {
     ///
     /// Ok(()) if the URL was successfully opened, or an error message if it failed.
     pub fn open_website(url: &str) -> Result<(), String> {
-        let result = match std::env::consts::OS {
-            "windows" => Command::new(url).spawn(),
+        let result = match crate::get_platform().as_str() {
+            "windows" => Command::new("cmd").args(["/C", "start", "", url]).spawn(),
             "macos" => Command::new("open").arg(url).spawn(),
             "linux" => Command::new("xdg-open").arg(url).spawn(),
             _ => {
-                return Err(format!(
-                    "Error: Unsupported platform {}",
-                    std::env::consts::OS
-                ));
+                return Err(format!("Unsupported platform {}", std::env::consts::OS));
             }
         };
 
         if let Err(err) = result {
-            error!("Failed to open update download URL: {err}");
-            return Err(format!("Error: {}", err));
+            error!("Failed to open URL: {err}");
+            return Err(format!("Failed to open URL: {err}"));
         }
 
         Ok(())
