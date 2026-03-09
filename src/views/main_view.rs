@@ -101,7 +101,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
     let content = iced::widget::column![
         row![
             container(text("Input:")).width(Length::FillPortion(1)),
-            container(text_input("", &state.input_path).width(Length::Fill))
+            container(text_input("", &state.input_path.join(", ")).width(Length::Fill))
                 .width(Length::FillPortion(3)),
             container(browse_input_button).width(Length::Shrink),
         ],

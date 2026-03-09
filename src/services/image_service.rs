@@ -39,7 +39,7 @@ impl ImageService {
     ///
     /// # Arguments
     ///
-    /// * `input_path` - The path to the input image.
+    /// * `input_path` - The path(s) to the input image(s).
     /// * `output_path` - The path to the output image.
     /// * `scale` - The scale factor to apply to the image (in percentage).
     /// * `width` - The desired width of the output image (optional).
@@ -54,7 +54,7 @@ impl ImageService {
     #[allow(clippy::too_many_arguments)]
     pub fn compress_image(
         &self,
-        input_path: &str,
+        input_path: Vec<String>,
         output_path: &str,
         scale: u32,
         width: Option<u32>,
@@ -71,22 +71,6 @@ impl ImageService {
             return Err("Output path cannot be empty".to_string());
         }
 
-        // Check if input path is a directory
-        let mut files = Vec::new();
-        if fs::metadata(input_path)
-            .map_err(|e| format!("Failed to read input path metadata: {e}"))?
-            .is_dir()
-        {
-            files = match self.list_files_recursively(Path::new(input_path)) {
-                Ok(files) => files,
-                Err(e) => {
-                    return Err(format!("Failed to list files in directory: {e}"));
-                }
-            };
-        } else {
-            files.push(input_path.to_string());
-        }
-
         let mut is_output_a_directory = false;
 
         // Check if output path already exists
@@ -96,7 +80,7 @@ impl ImageService {
                 .is_dir();
         }
 
-        for file in files {
+        for file in input_path {
             let mut img = if file.ends_with(".svg") {
                 match ImageService::load_svg(&file) {
                     Ok(img) => img,
@@ -208,35 +192,6 @@ impl ImageService {
         }
 
         Ok(())
-    }
-
-    /// Recursively lists all files in a directory.
-    ///
-    /// # Arguments
-    ///
-    /// * `dir` - The path to the directory.
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if the directory cannot be read.
-    ///
-    /// # Returns
-    ///
-    /// A vector of file paths as strings.
-    fn list_files_recursively(&self, dir: &Path) -> std::io::Result<Vec<String>> {
-        let mut files = Vec::new();
-        if dir.is_dir() {
-            for entry in fs::read_dir(dir)? {
-                let entry = entry?;
-                let path = entry.path();
-                if path.is_dir() {
-                    files.extend(self.list_files_recursively(&path)?);
-                } else {
-                    files.push(path.to_string_lossy().into_owned());
-                }
-            }
-        }
-        Ok(files)
     }
 
     /// Loads an SVG file and converts it to a `DynamicImage`.
