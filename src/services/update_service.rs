@@ -11,7 +11,7 @@ pub struct UpdateService {
 pub struct UpdateInfo {
     pub semver: String,
     pub download_url: String,
-    pub info_url: String,
+    pub info_url: Option<String>,
 }
 
 impl UpdateService {

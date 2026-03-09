@@ -20,16 +20,20 @@ pub fn view(state: &State) -> Element<'_, Message> {
         .update_version
         .clone()
         .unwrap_or("unknown".to_string());
+
     let content = iced::widget::column![
         row![text(format!(
             "Version {} is now available! Would you like to download this version?",
             new_version
         ))],
         row![
-            button("Information")
-                .style(button::secondary)
-                .width(Length::Shrink)
-                .on_press(Message::OpenUpdateInformation),
+            state
+                .update_info_url
+                .is_some()
+                .then(|| button("Information")
+                    .style(button::secondary)
+                    .width(Length::Shrink)
+                    .on_press(Message::OpenUpdateInformation)),
             space::horizontal().width(Length::Fill),
             button("Download")
                 .style(button::primary)

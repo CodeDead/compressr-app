@@ -20,7 +20,7 @@ impl Default for Settings {
     fn default() -> Self {
         let res = Self {
             auto_update: true,
-            update_server: "https://codedead.com/Software/compressr/version.json".to_string(),
+            update_server: "https://api.codedead.com/api/v1/version/4b66935d-7234-4662-aadc-3a12c1da621a".to_string(),
             theme: Some(Theme::Oxocarbon.to_string()),
             delete_files_after_compression: false,
         };

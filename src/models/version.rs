@@ -13,5 +13,5 @@ pub struct Platform {
     #[serde(rename = "downloadUrl")]
     pub download_url: String,
     #[serde(rename = "infoUrl")]
-    pub info_url: String,
+    pub info_url: Option<String>,
 }

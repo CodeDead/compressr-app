@@ -456,7 +456,7 @@ impl App {
                         self.state.last_error_message = None;
                         self.state.update_version = Some(update_info.semver.clone());
                         self.state.update_download_url = Some(update_info.download_url.clone());
-                        self.state.update_info_url = Some(update_info.info_url.clone());
+                        self.state.update_info_url = update_info.info_url.clone();
 
                         let Some(last_window) = self.windows.keys().last() else {
                             return Task::none();
