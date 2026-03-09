@@ -253,8 +253,11 @@ impl App {
                 }
             }
             Message::SelectInput => {
-                if let Some(path) = FileDialog::new().pick_file() {
-                    self.state.input_path = path.display().to_string();
+                if let Some(path) = FileDialog::new().pick_files() {
+                    self.state.input_path = path
+                        .iter()
+                        .map(|p| p.display().to_string())
+                        .collect::<Vec<String>>();
                 }
                 self.state.compression_succeeded = false;
 
@@ -286,7 +289,7 @@ impl App {
                     async move {
                         tokio::task::spawn_blocking(move || {
                             image_service.compress_image(
-                                &input,
+                                input,
                                 &output,
                                 scale,
                                 width,

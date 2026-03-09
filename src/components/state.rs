@@ -2,7 +2,7 @@ use crate::components::settings::Settings;
 use crate::services::image_service::OutputFormat;
 
 pub struct State {
-    pub input_path: String,
+    pub input_path: Vec<String>,
     pub output_path: String,
     pub scale: u32,
     pub height: Option<u32>,
@@ -27,7 +27,7 @@ impl Default for State {
     /// A State instance with default values.
     fn default() -> Self {
         State {
-            input_path: String::new(),
+            input_path: Vec::new(),
             output_path: String::new(),
             scale: 100,
             height: None,
