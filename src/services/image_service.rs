@@ -1,9 +1,7 @@
-use image::{ExtendedColorType, GenericImageView, ImageFormat};
-use resvg::usvg;
+use image::{ExtendedColorType, GenericImageView, ImageEncoder, ImageFormat};
 use std::fs;
 use std::fs::File;
 use std::path::Path;
-use tiny_skia::Pixmap;
 
 #[derive(Default, Clone)]
 pub struct ImageService;
@@ -14,14 +12,18 @@ pub enum OutputFormat {
     Png,
     Gif,
     WebP,
+    Bmp,
+    Tiff,
 }
 
 impl OutputFormat {
-    pub const ALL: [OutputFormat; 4] = [
+    pub const ALL: [OutputFormat; 6] = [
         OutputFormat::Jpeg,
         OutputFormat::Png,
         OutputFormat::Gif,
         OutputFormat::WebP,
+        OutputFormat::Bmp,
+        OutputFormat::Tiff,
     ];
 }
 
@@ -81,19 +83,10 @@ impl ImageService {
         }
 
         for file in input_path {
-            let mut img = if file.ends_with(".svg") {
-                match ImageService::load_svg(&file) {
-                    Ok(img) => img,
-                    Err(e) => {
-                        return Err(format!("Failed to load SVG: {e}"));
-                    }
-                }
-            } else {
-                match image::open(&file) {
-                    Ok(img) => img,
-                    Err(e) => {
-                        return Err(format!("Failed to load image: {e}"));
-                    }
+            let mut img = match image::open(&file) {
+                Ok(img) => img,
+                Err(e) => {
+                    return Err(format!("Failed to load image: {e}"));
                 }
             };
 
@@ -126,6 +119,8 @@ impl ImageService {
                     OutputFormat::Png => "png",
                     OutputFormat::Gif => "gif",
                     OutputFormat::WebP => "webp",
+                    OutputFormat::Bmp => "bmp",
+                    OutputFormat::Tiff => "tiff",
                 };
 
                 format!(
@@ -184,6 +179,34 @@ impl ImageService {
                         }
                     };
                 }
+                OutputFormat::Bmp => {
+                    let mut encoder = image::codecs::bmp::BmpEncoder::new(&mut output);
+                    match encoder.encode(
+                        &img.to_rgba8(),
+                        img.width(),
+                        img.height(),
+                        ExtendedColorType::Rgba8,
+                    ) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            return Err(format!("Failed to encode BMP: {e}"));
+                        }
+                    };
+                }
+                OutputFormat::Tiff => {
+                    let encoder = image::codecs::tiff::TiffEncoder::new(&mut output);
+                    match encoder.write_image(
+                        &img.to_rgba8(),
+                        img.width(),
+                        img.height(),
+                        ExtendedColorType::Rgba8,
+                    ) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            return Err(format!("Failed to write TIFF header: {e}"));
+                        }
+                    };
+                }
             }
 
             if delete_original && let Err(e) = fs::remove_file(&file) {
@@ -192,43 +215,5 @@ impl ImageService {
         }
 
         Ok(())
-    }
-
-    /// Loads an SVG file and converts it to a `DynamicImage`.
-    ///
-    /// # Arguments
-    ///
-    /// * `path` - The path to the SVG file.
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if the SVG file cannot be read, if the SVG cannot be parsed, or if the SVG cannot be rendered.
-    pub fn load_svg(path: &str) -> anyhow::Result<image::DynamicImage> {
-        let data = fs::read(path)?;
-
-        // Parse options
-        let mut opt = usvg::Options {
-            resources_dir: fs::canonicalize(path)
-                .ok()
-                .and_then(|p| p.parent().map(|p| p.to_path_buf())),
-            ..usvg::Options::default()
-        };
-        opt.fontdb_mut().load_system_fonts();
-
-        let tree = usvg::Tree::from_data(&data, &opt)?;
-
-        // Create pixmap
-        let size = tree.size().to_int_size();
-        let mut pixmap = Pixmap::new(size.width(), size.height())
-            .ok_or_else(|| anyhow::anyhow!("Failed to create pixmap"))?;
-
-        // Render SVG to pixmap
-        resvg::render(&tree, tiny_skia::Transform::default(), &mut pixmap.as_mut());
-
-        // Convert to image::DynamicImage
-        let img = image::RgbaImage::from_raw(pixmap.width(), pixmap.height(), pixmap.take())
-            .ok_or_else(|| anyhow::anyhow!("Failed to convert SVG"))?;
-
-        Ok(image::DynamicImage::ImageRgba8(img))
     }
 }

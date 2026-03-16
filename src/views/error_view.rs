@@ -22,11 +22,13 @@ pub fn view(state: &State) -> Element<'_, Message> {
         .unwrap_or("An unknown error occurred.".to_string());
 
     let content = iced::widget::column![
-        row![text(format!(
-            "An error occurred. Details:\n{}",
-            last_error_message
-        ))],
+        row![text(format!("An error occurred:\n{}", last_error_message))],
+        row![space::vertical(),],
         row![
+            button("Copy")
+                .width(Length::Shrink)
+                .style(button::subtle)
+                .on_press(Message::CopyErrorMessage),
             space::horizontal().width(Length::Fill),
             button("Close")
                 .width(Length::Shrink)

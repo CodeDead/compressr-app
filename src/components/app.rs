@@ -7,7 +7,7 @@ use iced::widget::space;
 use iced::window::Position;
 #[cfg(target_os = "linux")]
 use iced::window::settings::PlatformSpecific;
-use iced::{Element, Size, Subscription, Task, Theme, window};
+use iced::{Element, Size, Subscription, Task, Theme, clipboard, window};
 use log::{error, info};
 use rfd::FileDialog;
 use std::collections::BTreeMap;
@@ -48,6 +48,7 @@ pub enum Message {
     DownloadUpdate,
     CloseErrorView,
     OpenErrorView,
+    CopyErrorMessage,
 }
 
 pub struct App {
@@ -148,7 +149,7 @@ impl App {
         info!("Initializing new App");
 
         let window_icon = Self::load_icon();
-        let settings = Self::create_window_settings((650.0, 375.0), window_icon);
+        let settings = Self::create_window_settings((650.0, 385.0), window_icon);
 
         let state = State::default();
         let update_server = state.settings.update_server.clone();
@@ -253,7 +254,13 @@ impl App {
                 }
             }
             Message::SelectInput => {
-                if let Some(path) = FileDialog::new().pick_files() {
+                if let Some(path) = FileDialog::new()
+                    .add_filter(
+                        "Image files",
+                        &["png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff"],
+                    )
+                    .pick_files()
+                {
                     self.state.input_path = path
                         .iter()
                         .map(|p| p.display().to_string())
@@ -393,7 +400,7 @@ impl App {
                 window::position(*last_window)
                     .then(|_| {
                         let window_icon = Self::load_icon();
-                        let settings = Self::create_window_settings((480.0, 240.0), window_icon);
+                        let settings = Self::create_window_settings((450.0, 250.0), window_icon);
                         let (_, open) = window::open(settings);
                         open
                     })
@@ -473,7 +480,7 @@ impl App {
                             .then(|_| {
                                 let window_icon = Self::load_icon();
                                 let settings =
-                                    Self::create_window_settings((400.0, 180.0), window_icon);
+                                    Self::create_window_settings((400.0, 190.0), window_icon);
                                 let (_, open) = window::open(settings);
                                 open
                             })
@@ -549,6 +556,10 @@ impl App {
                 }
 
                 Task::none()
+            }
+            Message::CopyErrorMessage => {
+                let error_message = self.state.last_error_message.clone().unwrap_or_default();
+                clipboard::write(error_message)
             }
         }
     }

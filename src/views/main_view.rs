@@ -22,6 +22,8 @@ impl std::fmt::Display for OutputFormat {
             OutputFormat::Png => write!(f, "PNG"),
             OutputFormat::Gif => write!(f, "GIF"),
             OutputFormat::WebP => write!(f, "WebP"),
+            OutputFormat::Bmp => write!(f, "BMP"),
+            OutputFormat::Tiff => write!(f, "Tiff"),
         }
     }
 }
@@ -40,6 +42,8 @@ pub fn view(state: &State) -> Element<'_, Message> {
     let handle = image_widget::Handle::from_bytes(bytes.as_slice());
     let image = iced_image::new(handle);
 
+    let mut text_input_path = text_input("", &state.input_path.join(", "));
+    let mut text_output_path = text_input("", &state.output_path);
     let mut browse_input_button = button("Browse");
     let mut browse_output_button = button("Browse");
 
@@ -55,7 +59,10 @@ pub fn view(state: &State) -> Element<'_, Message> {
     let mut compress_button = button("Compress");
 
     if !state.is_compressing {
+        text_input_path = text_input_path.on_input(|_| Message::SelectInput);
         browse_input_button = browse_input_button.on_press(Message::SelectInput);
+
+        text_output_path = text_output_path.on_input(|_| Message::SelectOutput);
         browse_output_button = browse_output_button.on_press(Message::SelectOutput);
 
         quality_slider = slider(0..=100, state.quality, Message::QualityChanged);
@@ -78,6 +85,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 .color(color!(255, 255, 255)),
             space::horizontal().width(Length::Fill),
             button(image.width(28).height(28))
+                .style(button::subtle)
                 .width(Length::Shrink)
                 .height(Length::Shrink)
                 .on_press(Message::OpenSettings),
@@ -101,14 +109,12 @@ pub fn view(state: &State) -> Element<'_, Message> {
     let content = iced::widget::column![
         row![
             container(text("Input:")).width(Length::FillPortion(1)),
-            container(text_input("", &state.input_path.join(", ")).width(Length::Fill))
-                .width(Length::FillPortion(3)),
+            container(text_input_path).width(Length::FillPortion(3)),
             container(browse_input_button).width(Length::Shrink),
         ],
         row![
             container(text("Output:")).width(Length::FillPortion(1)),
-            container(text_input("", &state.output_path).width(Length::Fill))
-                .width(Length::FillPortion(3)),
+            container(text_output_path).width(Length::FillPortion(3)),
             container(browse_output_button).width(Length::Shrink),
         ],
         row![text("Format:"), space::horizontal(), format_pick_list,],
@@ -150,6 +156,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
             )
             .on_input(Message::HeightChanged),
         ],
+        row![space::vertical(),],
         row![
             state
                 .is_compressing
