@@ -26,6 +26,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
             "Version {} is now available! Would you like to download this version?",
             new_version
         ))],
+        row![space::vertical()],
         row![
             state
                 .update_info_url

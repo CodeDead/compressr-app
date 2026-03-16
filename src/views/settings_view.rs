@@ -45,12 +45,13 @@ pub fn view(state: &State) -> Element<'_, Message> {
             .width(Length::Fill)
         ]
         .spacing(20),
+        row![space::vertical(),],
         row![
             button("Check for updates")
                 .width(Length::Shrink)
                 .on_press(Message::CheckForUpdates),
             space::horizontal().width(Length::Fill),
-            button("Reset to defaults")
+            button("Reset all settings")
                 .style(button::danger)
                 .width(Length::Shrink)
                 .on_press(Message::ResetSettings),

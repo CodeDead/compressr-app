@@ -4,7 +4,7 @@
 ![GitHub](https://img.shields.io/badge/language-Rust-green)
 ![GitHub](https://img.shields.io/github/license/CodeDead/compressr-app)
 
-![Compressr App](https://i.imgur.com/P76r4u3.png)
+![Compressr App](https://i.imgur.com/ItEs8uE.png)
 
 Compressr is the desktop application for compressing and optimizing images. It supports various image formats and provides a user-friendly interface for batch processing.
 
@@ -60,9 +60,6 @@ make release VERSION=1.0.0
 - [iced](https://github.com/iced-rs/iced)
 - [image](https://crates.io/crates/image)
 - [rfd](https://crates.io/crates/rfd)
-- [anyhow](https://crates.io/crates/anyhow)
-- [resvg](https://crates.io/crates/resvg)
-- [tiny-skia](https://crates.io/crates/tiny-skia)
 - [iced_aw](https://crates.io/crates/iced_aw)
 - [tokio](https://crates.io/crates/tokio)
 - [serde](https://crates.io/crates/serde)
