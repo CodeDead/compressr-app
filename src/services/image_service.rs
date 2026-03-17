@@ -91,12 +91,14 @@ impl ImageService {
             };
 
             // Scale
-            let (w, h) = img.dimensions();
-            img = img.resize(
-                w * scale / 100,
-                h * scale / 100,
-                image::imageops::FilterType::Lanczos3,
-            );
+            if scale < 100 {
+                let (w, h) = img.dimensions();
+                img = img.resize(
+                    w * scale / 100,
+                    h * scale / 100,
+                    image::imageops::FilterType::Lanczos3,
+                );
+            }
 
             // Resize
             if let Some(w) = width

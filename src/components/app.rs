@@ -382,7 +382,7 @@ impl App {
                 window::position(*last_window)
                     .then(|_| {
                         let window_icon = Self::load_icon();
-                        let settings = Self::create_window_settings((400.0, 190.0), window_icon);
+                        let settings = Self::create_window_settings((400.0, 210.0), window_icon);
                         let (_, open) = window::open(settings);
                         open
                     })
