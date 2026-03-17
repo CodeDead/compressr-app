@@ -91,7 +91,7 @@ impl ImageService {
             };
 
             // Scale
-            if scale < 100 {
+            if width.is_none() && height.is_none() && scale < 100 {
                 let (w, h) = img.dimensions();
                 img = img.resize(
                     w * scale / 100,
