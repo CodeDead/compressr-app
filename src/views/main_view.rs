@@ -42,6 +42,10 @@ pub fn view(state: &State) -> Element<'_, Message> {
     let handle = image_widget::Handle::from_bytes(bytes.as_slice());
     let image = iced_image::new(handle);
 
+    let info_bytes = include_bytes!("../../resources/info.png");
+    let info_handle = image_widget::Handle::from_bytes(info_bytes.as_slice());
+    let info_image = iced_image::new(info_handle);
+
     let mut text_input_path = text_input("", &state.input_path.join(", "));
     let mut text_output_path = text_input("", &state.output_path);
     let mut browse_input_button = button("Browse");
@@ -89,6 +93,11 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 .width(Length::Shrink)
                 .height(Length::Shrink)
                 .on_press(Message::OpenSettings),
+            button(info_image.width(28).height(28))
+                .style(button::subtle)
+                .width(Length::Shrink)
+                .height(Length::Shrink)
+                .on_press(Message::OpenAbout),
         ]])
         .center_y(Length::Fill)
         .width(Length::Fill)

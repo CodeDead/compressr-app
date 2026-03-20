@@ -28,7 +28,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
             button("Copy")
                 .width(Length::Shrink)
                 .style(button::subtle)
-                .on_press(Message::CopyErrorMessage),
+                .on_press(Message::CopyError),
             space::horizontal().width(Length::Fill),
             button("Close")
                 .width(Length::Shrink)

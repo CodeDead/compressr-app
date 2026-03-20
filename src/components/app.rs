@@ -1,8 +1,9 @@
 use crate::components::state::State;
+use crate::services;
 use crate::services::image_service::{ImageService, OutputFormat};
 use crate::services::theme_service::ThemeService;
 use crate::services::update_service::{UpdateInfo, UpdateService};
-use crate::views::{error_view, main_view, settings_view, update_view};
+use crate::views::{about_view, error_view, main_view, settings_view, update_view};
 use iced::widget::space;
 use iced::window::Position;
 #[cfg(target_os = "linux")]
@@ -48,7 +49,10 @@ pub enum Message {
     DownloadUpdate,
     CloseErrorView,
     OpenErrorView,
-    CopyErrorMessage,
+    CopyError,
+    OpenCodeDeadPage,
+    OpenDonationPage,
+    OpenAbout,
 }
 
 pub struct App {
@@ -517,7 +521,7 @@ impl App {
                     .clone()
                     .unwrap_or("https://codedead.com/".to_string());
 
-                match UpdateService::open_website(&info_url) {
+                match services::open_website(&info_url) {
                     Ok(_) => {
                         info!("Opened update information URL successfully");
                     }
@@ -537,7 +541,7 @@ impl App {
                     .clone()
                     .unwrap_or("https://codedead.com/".to_string());
 
-                match UpdateService::open_website(download_url) {
+                match services::open_website(download_url) {
                     Ok(_) => {
                         info!("Opened update download URL successfully");
                         std::process::exit(0);
@@ -557,9 +561,55 @@ impl App {
 
                 Task::none()
             }
-            Message::CopyErrorMessage => {
+            Message::CopyError => {
                 let error_message = self.state.last_error_message.clone().unwrap_or_default();
                 clipboard::write(error_message)
+            }
+            Message::OpenCodeDeadPage => {
+                match services::open_website("https://codedead.com/") {
+                    Ok(_) => {
+                        info!("Opened CodeDead URL successfully");
+                    }
+                    Err(err) => {
+                        error!("Failed to open CodeDead URL: {err}");
+                        self.state.last_error_message = Some(err);
+                        return Task::perform(async {}, |_| Message::OpenErrorView);
+                    }
+                };
+
+                Task::none()
+            }
+            Message::OpenDonationPage => {
+                match services::open_website("https://codedead.com/donate") {
+                    Ok(_) => {
+                        info!("Opened donation URL successfully");
+                    }
+                    Err(err) => {
+                        error!("Failed to open donation URL: {err}");
+                        self.state.last_error_message = Some(err);
+                        return Task::perform(async {}, |_| Message::OpenErrorView);
+                    }
+                };
+
+                Task::none()
+            }
+            Message::OpenAbout => {
+                let Some(last_window) = self.windows.keys().last() else {
+                    return Task::none();
+                };
+
+                if self.windows.values().any(|w| w.window_id == 4) {
+                    return Task::none();
+                }
+
+                window::position(*last_window)
+                    .then(|_| {
+                        let window_icon = Self::load_icon();
+                        let about = Self::create_window_settings((450.0, 270.0), window_icon);
+                        let (_, open) = window::open(about);
+                        open
+                    })
+                    .map(|r| Message::ViewOpened("Compressr - About".to_string(), 4, r))
             }
         }
     }
@@ -580,6 +630,7 @@ impl App {
                 1 => settings_view::view(&self.state),
                 2 => update_view::view(&self.state),
                 3 => error_view::view(&self.state),
+                4 => about_view::view(),
                 _ => space().into(),
             }
         } else {
