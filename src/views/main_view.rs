@@ -93,6 +93,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 .width(Length::Shrink)
                 .height(Length::Shrink)
                 .on_press(Message::OpenSettings),
+            text(" "),
             button(info_image.width(28).height(28))
                 .style(button::subtle)
                 .width(Length::Shrink)
