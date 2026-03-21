@@ -108,13 +108,13 @@ impl ImageService {
             }
 
             let output_path = if is_output_a_directory {
-                let file_name_without_path_and_extension = Path::new(&file)
-                    .file_stem()
-                    .and_then(|s| s.to_str())
+                let file_name_with_extension = Path::new(&file)
+                    .file_name()
+                    .and_then(|name| name.to_str())
                     .unwrap_or("output");
 
                 let file_name_without_path_and_extension =
-                    format!("{}_compressed", file_name_without_path_and_extension);
+                    format!("{}_compressed", file_name_with_extension);
 
                 let extension = match format {
                     OutputFormat::Jpeg => "jpg",
