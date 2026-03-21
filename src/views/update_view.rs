@@ -14,29 +14,36 @@ use iced::{Element, Length, color};
 ///
 /// An Element representing the update view of the application, which can be rendered by the Iced framework.
 pub fn view(state: &State) -> Element<'_, Message> {
-    let header = get_header("Compressr - Update".to_string(), color!(48, 48, 48, 0.8));
+    let current_language = state
+        .languages
+        .iter()
+        .find(|l| l.language_key == state.settings.language_key);
+    let current_language = current_language.unwrap_or(&state.languages[0]);
 
-    let new_version = state
-        .update_version
-        .clone()
-        .unwrap_or("unknown".to_string());
+    let header = get_header(
+        current_language.compressr_update.clone(),
+        color!(48, 48, 48, 0.8),
+    );
+
+    let new_version = state.update_version.clone().unwrap_or("".to_string());
 
     let content = iced::widget::column![
-        row![text(format!(
-            "Version {} is now available! Would you like to download this version?",
-            new_version
-        ))],
+        row![text(
+            current_language
+                .new_version_available
+                .replace("{version}", &new_version)
+        )],
         row![space::vertical()],
         row![
             state
                 .update_info_url
                 .is_some()
-                .then(|| button("Information")
+                .then(|| button(current_language.information.as_str())
                     .style(button::secondary)
                     .width(Length::Shrink)
                     .on_press(Message::OpenUpdateInformation)),
             space::horizontal().width(Length::Fill),
-            button("Download")
+            button(current_language.download.as_str())
                 .style(button::primary)
                 .width(Length::Shrink)
                 .on_press(Message::DownloadUpdate),

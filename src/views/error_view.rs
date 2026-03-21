@@ -14,23 +14,38 @@ use iced::{Element, Length, color};
 ///
 /// An Element representing the error view of the application, which can be rendered by the Iced framework.
 pub fn view(state: &State) -> Element<'_, Message> {
-    let header = get_header("Compressr - Error".to_string(), color!(175, 0, 0, 0.8));
+    let current_language = state
+        .languages
+        .iter()
+        .find(|l| l.language_key == state.settings.language_key);
+    let current_language = current_language.unwrap_or(&state.languages[0]);
 
-    let last_error_message = state
-        .last_error_message
-        .clone()
-        .unwrap_or("An unknown error occurred.".to_string());
+    let mut has_error_to_copy = true;
+    let last_error_message = match state.last_error_message.clone() {
+        None => {
+            has_error_to_copy = false;
+            current_language.unknown_error.clone()
+        }
+        Some(e) => e,
+    };
+
+    let header = get_header(
+        current_language.compressr_error.clone(),
+        color!(175, 0, 0, 0.8),
+    );
 
     let content = iced::widget::column![
-        row![text(format!("An error occurred:\n{}", last_error_message))],
+        row![text(last_error_message)],
         row![space::vertical(),],
         row![
-            button("Copy")
-                .width(Length::Shrink)
-                .style(button::subtle)
-                .on_press(Message::CopyError),
+            has_error_to_copy.then(|| {
+                button(current_language.copy.as_str())
+                    .width(Length::Shrink)
+                    .style(button::subtle)
+                    .on_press(Message::CopyError)
+            }),
             space::horizontal().width(Length::Fill),
-            button("Close")
+            button(current_language.close.as_str())
                 .width(Length::Shrink)
                 .on_press(Message::CloseErrorView),
         ]

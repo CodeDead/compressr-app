@@ -46,10 +46,17 @@ pub fn view(state: &State) -> Element<'_, Message> {
     let info_handle = image_widget::Handle::from_bytes(info_bytes.as_slice());
     let info_image = iced_image::new(info_handle);
 
+    let current_language = state
+        .languages
+        .iter()
+        .find(|l| l.language_key == state.settings.language_key);
+    let current_language = current_language.unwrap_or(&state.languages[0]);
+
     let mut text_input_path = text_input("", &state.input_path.join(", "));
     let mut text_output_path = text_input("", &state.output_path);
-    let mut browse_input_button = button("Browse");
-    let mut browse_output_button = button("Browse");
+
+    let mut browse_input_button = button(current_language.browse.as_str());
+    let mut browse_output_button = button(current_language.browse.as_str());
 
     let mut quality_slider = slider(1..=100, 100, Message::IgnoreQuality);
     let mut scale_slider = slider(1..=100, state.scale, Message::IgnoreScale);
@@ -60,7 +67,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
         Message::IgnoreFormatSelected,
     );
 
-    let mut compress_button = button("Compress");
+    let mut compress_button = button(current_language.compress.as_str());
 
     if !state.is_compressing {
         text_input_path = text_input_path.on_input(|_| Message::SelectInput);
@@ -121,31 +128,35 @@ pub fn view(state: &State) -> Element<'_, Message> {
     ]];
     let content = iced::widget::column![
         row![
-            container(text("Input:")).width(Length::FillPortion(1)),
+            container(text(current_language.input.as_str())).width(Length::FillPortion(1)),
             container(text_input_path).width(Length::FillPortion(3)),
             container(browse_input_button).width(Length::Shrink),
         ],
         row![
-            container(text("Output:")).width(Length::FillPortion(1)),
+            container(text(current_language.output.as_str())).width(Length::FillPortion(1)),
             container(text_output_path).width(Length::FillPortion(3)),
             container(browse_output_button).width(Length::Shrink),
         ],
-        row![text("Format:"), space::horizontal(), format_pick_list,],
         row![
-            container(text("Quality:")).width(Length::FillPortion(1)),
+            text(current_language.format.as_str()),
+            space::horizontal(),
+            format_pick_list,
+        ],
+        row![
+            container(text(current_language.quality.as_str())).width(Length::FillPortion(1)),
             container(quality_slider).width(Length::FillPortion(3)),
             container(text(state.quality.to_string() + "%")).width(Length::Shrink),
         ]
         .spacing(10),
         row![
-            container(text("Scale:")).width(Length::FillPortion(1)),
+            container(text(current_language.scale.as_str())).width(Length::FillPortion(1)),
             container(scale_slider).width(Length::FillPortion(3)),
             container(text(state.scale.to_string() + "%")).width(Length::Shrink),
         ]
         .spacing(10),
         row![
             text_input(
-                "Width",
+                current_language.width.as_str(),
                 &match state.width {
                     None => {
                         String::new()
@@ -157,7 +168,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
             )
             .on_input(Message::WidthChanged),
             text_input(
-                "Height",
+                current_language.height.as_str(),
                 &match state.height {
                     None => {
                         String::new()
@@ -173,14 +184,20 @@ pub fn view(state: &State) -> Element<'_, Message> {
         row![
             state
                 .is_compressing
-                .then(|| badge(Text::new("Compressing")).style(style::badge::info)),
+                .then(|| badge(Text::new(current_language.compressing.as_str()))
+                    .style(style::badge::info)),
             state
                 .compression_succeeded
-                .then(|| badge(Text::new("Compressed!")).style(style::badge::success)),
-            state
-                .status
-                .starts_with("Latest version")
-                .then(|| badge(Text::new("Latest version installed")).style(style::badge::success)),
+                .then(|| badge(Text::new(current_language.compressed.as_str()))
+                    .style(style::badge::success)),
+            state.show_latest_version.then(|| {
+                state.latest_version.then(|| {
+                    badge(Text::new(
+                        current_language.latest_version_installed.as_str(),
+                    ))
+                    .style(style::badge::success)
+                })
+            }),
             space::horizontal(),
             compress_button,
         ],
