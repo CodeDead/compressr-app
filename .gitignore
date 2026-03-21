@@ -2,3 +2,5 @@
 .idea/
 .vscode/
 config.json
+/.github/copilot-instructions.md
+/.github/agents/

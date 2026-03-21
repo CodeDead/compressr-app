@@ -51,8 +51,8 @@ pub fn view(state: &State) -> Element<'_, Message> {
     let mut browse_input_button = button("Browse");
     let mut browse_output_button = button("Browse");
 
-    let mut quality_slider = slider(0..=100, state.quality, Message::IgnoreQuality);
-    let mut scale_slider = slider(0..=100, state.scale, Message::IgnoreScale);
+    let mut quality_slider = slider(1..=100, 100, Message::IgnoreQuality);
+    let mut scale_slider = slider(1..=100, state.scale, Message::IgnoreScale);
 
     let mut format_pick_list = pick_list(
         &OutputFormat::ALL[..],
@@ -69,8 +69,11 @@ pub fn view(state: &State) -> Element<'_, Message> {
         text_output_path = text_output_path.on_input(|_| Message::SelectOutput);
         browse_output_button = browse_output_button.on_press(Message::SelectOutput);
 
-        quality_slider = slider(0..=100, state.quality, Message::QualityChanged);
-        scale_slider = slider(0..=100, state.scale, Message::CompressionScaleChanged);
+        if state.format == OutputFormat::Jpeg {
+            quality_slider = slider(1..=100, state.quality, Message::QualityChanged);
+        }
+
+        scale_slider = slider(1..=100, state.scale, Message::CompressionScaleChanged);
 
         format_pick_list = pick_list(
             &OutputFormat::ALL[..],

@@ -311,13 +311,16 @@ impl App {
                             )
                         })
                         .await
-                        .unwrap()
+                        .unwrap_or_else(|err| Err(format!("Compression task failed: {err}")))
                     },
                     Message::CompressionCompleted,
                 )
             }
             Message::FormatSelected(f) => {
                 self.state.format = f;
+                if f != OutputFormat::Jpeg {
+                    self.state.quality = 100;
+                }
 
                 Task::none()
             }
@@ -355,7 +358,6 @@ impl App {
             }
             Message::CompressionScaleChanged(s) => {
                 self.state.scale = s;
-
                 Task::none()
             }
             Message::CompressionCompleted(e) => {
