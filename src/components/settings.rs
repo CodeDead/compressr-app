@@ -64,15 +64,43 @@ impl Settings {
 
     /// Saves the current settings to a config file. If serialization or file writing fails, it logs an error.
     pub fn save(&self) {
+        let temp_path = "config.json.tmp";
+        let target_path = "config.json";
+
         match serde_json::to_string(self) {
             Ok(json) => {
-                if let Err(e) = fs::write("config.json", json) {
-                    error!("Failed to write settings to config.json: {e}");
-                };
+                if let Err(e) = fs::write(temp_path, json) {
+                    error!("Failed to write settings to temporary file: {e}");
+                    return;
+                }
+
+                if let Err(e) = fs::rename(temp_path, target_path) {
+                    #[cfg(target_os = "windows")]
+                    {
+                        if let Err(remove_err) = fs::remove_file(target_path)
+                            && remove_err.kind() != std::io::ErrorKind::NotFound
+                        {
+                            error!("Failed to replace existing config.json: {remove_err}");
+                            let _ = fs::remove_file(temp_path);
+                            return;
+                        }
+
+                        if let Err(rename_err) = fs::rename(temp_path, target_path) {
+                            error!("Failed to rename temporary file to config.json: {rename_err}");
+                            let _ = fs::remove_file(temp_path);
+                        }
+                    }
+
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        error!("Failed to rename temporary file to config.json: {e}");
+                        let _ = fs::remove_file(temp_path);
+                    }
+                }
             }
             Err(e) => {
                 error!("Failed to serialize settings: {e}");
             }
-        };
+        }
     }
 }

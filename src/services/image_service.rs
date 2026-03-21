@@ -82,7 +82,7 @@ impl ImageService {
                 .is_dir();
         }
 
-        for file in input_path {
+        for file in input_path.clone() {
             let mut img = match image::open(&file) {
                 Ok(img) => img,
                 Err(e) => {
@@ -210,9 +210,14 @@ impl ImageService {
                     };
                 }
             }
+        }
 
-            if delete_original && let Err(e) = fs::remove_file(&file) {
-                return Err(format!("Failed to delete original file: {e}"));
+        // Delete original files after compression
+        if delete_original {
+            for file in input_path {
+                if let Err(e) = fs::remove_file(&file) {
+                    return Err(format!("Failed to delete original file: {e}"));
+                }
             }
         }
 
