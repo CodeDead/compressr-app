@@ -1,4 +1,5 @@
 use crate::components::settings::Settings;
+use crate::models::language::Language;
 use crate::services::image_service::OutputFormat;
 
 pub struct State {
@@ -11,12 +12,14 @@ pub struct State {
     pub format: OutputFormat,
     pub is_compressing: bool,
     pub compression_succeeded: bool,
-    pub status: String,
+    pub latest_version: bool,
+    pub show_latest_version: bool,
     pub last_error_message: Option<String>,
     pub settings: Settings,
     pub update_version: Option<String>,
     pub update_download_url: Option<String>,
     pub update_info_url: Option<String>,
+    pub languages: Vec<Language>,
 }
 
 impl Default for State {
@@ -26,6 +29,29 @@ impl Default for State {
     ///
     /// A State instance with default values.
     fn default() -> Self {
+        let en_us_bytes = include_bytes!("../../languages/en_us.json");
+        let nl_nl_bytes = include_bytes!("../../languages/nl_nl.json");
+        let ru_ru_bytes = include_bytes!("../../languages/ru_ru.json");
+
+        let en_us_string = String::from_utf8_lossy(en_us_bytes).to_string();
+        let nl_nl_string = String::from_utf8_lossy(nl_nl_bytes).to_string();
+        let ru_ru_string = String::from_utf8_lossy(ru_ru_bytes).to_string();
+
+        let en_us_language =
+            serde_json::from_str::<Language>(&en_us_string).unwrap_or_else(|err| {
+                panic!("Failed to deserialize en_US language file: {err}");
+            });
+        let nl_nl_language =
+            serde_json::from_str::<Language>(&nl_nl_string).unwrap_or_else(|err| {
+                panic!("Failed to deserialize nl_NL language file: {err}");
+            });
+        let ru_ru_language =
+            serde_json::from_str::<Language>(&ru_ru_string).unwrap_or_else(|err| {
+                panic!("Failed to deserialize ru_RU language file: {err}");
+            });
+
+        let languages = vec![en_us_language, nl_nl_language, ru_ru_language];
+
         State {
             input_path: Vec::new(),
             output_path: String::new(),
@@ -36,12 +62,14 @@ impl Default for State {
             format: OutputFormat::Jpeg,
             is_compressing: false,
             compression_succeeded: false,
-            status: String::new(),
+            latest_version: false,
+            show_latest_version: false,
             last_error_message: None,
             settings: Settings::load_from_file(),
             update_version: None,
             update_download_url: None,
             update_info_url: None,
+            languages,
         }
     }
 }

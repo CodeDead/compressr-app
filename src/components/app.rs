@@ -43,7 +43,7 @@ pub enum Message {
     DeleteFilesAfterCompressionToggled(bool),
     ThemeChanged(Theme),
     ResetSettings,
-    CheckForUpdates,
+    CheckForUpdates(bool),
     UpdateCheckCompleted(Result<Option<UpdateInfo>, String>),
     OpenUpdateInformation,
     DownloadUpdate,
@@ -53,6 +53,8 @@ pub enum Message {
     OpenCodeDeadPage,
     OpenDonationPage,
     OpenAbout,
+    LanguageChanged(String),
+    ClearLatestVersionAlert,
 }
 
 pub struct App {
@@ -157,6 +159,7 @@ impl App {
 
         let state = State::default();
         let update_server = state.settings.update_server.clone();
+
         let (_, open) = window::open(settings);
         (
             Self {
@@ -195,6 +198,13 @@ impl App {
     ///
     /// A `Task<Message>` that represents any asynchronous operations that need to be performed as a result of processing the message. This can include tasks like opening new windows, performing file operations, or updating the UI after a delay.
     pub fn update(&mut self, message: Message) -> Task<Message> {
+        let current_language = self
+            .state
+            .languages
+            .iter()
+            .find(|l| l.language_key == self.state.settings.language_key);
+        let current_language = current_language.unwrap_or(&self.state.languages[0]);
+
         match message {
             Message::MainViewOpened(id) => {
                 let window = Window::new(
@@ -284,7 +294,6 @@ impl App {
             Message::Compress => {
                 self.state.is_compressing = true;
                 self.state.compression_succeeded = false;
-                self.state.status.clear();
 
                 let input = self.state.input_path.clone();
                 let output = self.state.output_path.clone();
@@ -385,6 +394,8 @@ impl App {
                     return Task::none();
                 }
 
+                let title = current_language.compressr_error.clone();
+
                 window::position(*last_window)
                     .then(|_| {
                         let window_icon = Self::load_icon();
@@ -392,7 +403,7 @@ impl App {
                         let (_, open) = window::open(settings);
                         open
                     })
-                    .map(|r| Message::ViewOpened("Compressr - Error".to_string(), 3, r))
+                    .map(move |r| Message::ViewOpened(title.clone(), 3, r))
             }
             Message::OpenSettings => {
                 let Some(last_window) = self.windows.keys().last() else {
@@ -403,14 +414,16 @@ impl App {
                     return Task::none();
                 }
 
+                let title = current_language.compressr_settings.clone();
+
                 window::position(*last_window)
                     .then(|_| {
                         let window_icon = Self::load_icon();
-                        let settings = Self::create_window_settings((450.0, 250.0), window_icon);
+                        let settings = Self::create_window_settings((500.0, 300.0), window_icon);
                         let (_, open) = window::open(settings);
                         open
                     })
-                    .map(|r| Message::ViewOpened("Compressr - Settings".to_string(), 1, r))
+                    .map(move |r| Message::ViewOpened(title.clone(), 1, r))
             }
             Message::AutoUpdateToggled(auto_update) => {
                 self.state.settings.auto_update = auto_update;
@@ -447,8 +460,9 @@ impl App {
 
                 Task::none()
             }
-            Message::CheckForUpdates => {
-                self.state.status.clear();
+            Message::CheckForUpdates(show) => {
+                self.state.show_latest_version = show;
+                self.state.latest_version = false;
 
                 let current_semver = env!("CARGO_PKG_VERSION").to_string();
                 let platform = crate::get_platform();
@@ -482,7 +496,9 @@ impl App {
                             return Task::none();
                         }
 
-                        return window::position(*last_window)
+                        let title = current_language.compressr_update.clone();
+
+                        window::position(*last_window)
                             .then(|_| {
                                 let window_icon = Self::load_icon();
                                 let settings =
@@ -490,31 +506,29 @@ impl App {
                                 let (_, open) = window::open(settings);
                                 open
                             })
-                            .map(|r| {
-                                Message::ViewOpened(
-                                    "Compressr - Update available".to_string(),
-                                    2,
-                                    r,
-                                )
-                            });
+                            .map(move |r| Message::ViewOpened(title.clone(), 2, r))
                     }
                     Ok(None) => {
                         info!("No updates available");
 
-                        self.state.status = "Latest version installed".to_string();
+                        self.state.latest_version = true;
                         self.state.last_error_message = None;
                         self.state.update_version = None;
                         self.state.update_download_url = None;
                         self.state.update_info_url = None;
+
+                        // Hide the badge to display the "latest version installed" message in the main view
+                        Task::perform(
+                            tokio::time::sleep(std::time::Duration::from_secs(10)),
+                            |_| Message::ClearLatestVersionAlert,
+                        )
                     }
                     Err(err) => {
                         error!("Failed to check for updates: {err}");
                         self.state.last_error_message = Some(err);
-                        return Task::perform(async {}, |_| Message::OpenErrorView);
+                        Task::perform(async {}, |_| Message::OpenErrorView)
                     }
                 }
-
-                Task::none()
             }
             Message::OpenUpdateInformation => {
                 let info_url = self
@@ -564,8 +578,11 @@ impl App {
                 Task::none()
             }
             Message::CopyError => {
-                let error_message = self.state.last_error_message.clone().unwrap_or_default();
-                clipboard::write(error_message)
+                if let Some(error_message) = self.state.last_error_message.clone() {
+                    clipboard::write(error_message)
+                } else {
+                    Task::none()
+                }
             }
             Message::OpenCodeDeadPage => {
                 match services::open_website("https://codedead.com/") {
@@ -604,6 +621,8 @@ impl App {
                     return Task::none();
                 }
 
+                let title = current_language.compressr_about.clone();
+
                 window::position(*last_window)
                     .then(|_| {
                         let window_icon = Self::load_icon();
@@ -611,7 +630,26 @@ impl App {
                         let (_, open) = window::open(about);
                         open
                     })
-                    .map(|r| Message::ViewOpened("Compressr - About".to_string(), 4, r))
+                    .map(move |r| Message::ViewOpened(title.clone(), 4, r))
+            }
+            Message::LanguageChanged(new_language) => {
+                // Find language with the language name
+                let selected_language = self
+                    .state
+                    .languages
+                    .iter()
+                    .find(|l| l.language_name == new_language);
+                let selected_language = selected_language.unwrap_or(&self.state.languages[0]);
+
+                self.state.settings.language_key = selected_language.language_key.to_string();
+                self.state.settings.save();
+
+                Task::none()
+            }
+            Message::ClearLatestVersionAlert => {
+                self.state.show_latest_version = false;
+
+                Task::none()
             }
         }
     }
@@ -632,7 +670,7 @@ impl App {
                 1 => settings_view::view(&self.state),
                 2 => update_view::view(&self.state),
                 3 => error_view::view(&self.state),
-                4 => about_view::view(),
+                4 => about_view::view(&self.state),
                 _ => space().into(),
             }
         } else {

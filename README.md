@@ -15,11 +15,12 @@ Whether you're a professional photographer or just looking to save space on your
 
 ## Features
 
-- Batch processing: Compress multiple images at once.
-- Customizable compression settings: Adjust the level of compression to suit your needs.
-- Preserve metadata: Keep important information such as EXIF data intact.
-- User-friendly interface: Easy to navigate and use for all skill levels.
-- Support for various image formats: JPEG, PNG, GIF, and more.
+- [X] Batch processing: Compress multiple images at once.
+- [X] Customizable compression settings: Adjust the level of compression to suit your needs.
+- [X] User-friendly interface: Easy to navigate and use for all skill levels.
+- [X] Support for various image formats: JPEG, PNG, GIF, and more.
+- [X] Cross-platform compatibility: Available for Windows, macOS, and Linux.
+- [X] Multi language support: Interface available in multiple languages.
 
 ## Building and Running the Application
 
