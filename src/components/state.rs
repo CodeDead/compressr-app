@@ -30,16 +30,22 @@ impl Default for State {
     /// A State instance with default values.
     fn default() -> Self {
         let en_us_bytes = include_bytes!("../../languages/en_us.json");
+        let fr_fr_bytes = include_bytes!("../../languages/fr_fr.json");
         let nl_nl_bytes = include_bytes!("../../languages/nl_nl.json");
         let ru_ru_bytes = include_bytes!("../../languages/ru_ru.json");
 
         let en_us_string = String::from_utf8_lossy(en_us_bytes).to_string();
+        let fr_fr_string = String::from_utf8_lossy(fr_fr_bytes).to_string();
         let nl_nl_string = String::from_utf8_lossy(nl_nl_bytes).to_string();
         let ru_ru_string = String::from_utf8_lossy(ru_ru_bytes).to_string();
 
         let en_us_language =
             serde_json::from_str::<Language>(&en_us_string).unwrap_or_else(|err| {
                 panic!("Failed to deserialize en_US language file: {err}");
+            });
+        let fr_fr_language =
+            serde_json::from_str::<Language>(&fr_fr_string).unwrap_or_else(|err| {
+                panic!("Failed to deserialize fr_FR language file: {err}");
             });
         let nl_nl_language =
             serde_json::from_str::<Language>(&nl_nl_string).unwrap_or_else(|err| {
@@ -50,7 +56,12 @@ impl Default for State {
                 panic!("Failed to deserialize ru_RU language file: {err}");
             });
 
-        let languages = vec![en_us_language, nl_nl_language, ru_ru_language];
+        let languages = vec![
+            en_us_language,
+            fr_fr_language,
+            nl_nl_language,
+            ru_ru_language,
+        ];
 
         State {
             input_path: Vec::new(),
