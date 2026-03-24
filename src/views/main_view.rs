@@ -1,7 +1,7 @@
 pub(crate) use crate::components::app::Message;
 use crate::components::state::State;
 use crate::services::image_service::OutputFormat;
-use iced::widget::{Image as iced_image, Text, image as image_widget};
+use iced::widget::{Image as iced_image, Image, Text, image as image_widget};
 use iced::widget::{button, container, pick_list, row, slider, space, text, text_input};
 use iced::{Element, Length, color};
 use iced_aw::{helpers::badge, style};
@@ -38,13 +38,31 @@ impl std::fmt::Display for OutputFormat {
 ///
 /// An Element representing the main view of the application, which can be rendered by the Iced framework.
 pub fn view(state: &State) -> Element<'_, Message> {
-    let bytes = include_bytes!("../../resources/settings.png");
-    let handle = image_widget::Handle::from_bytes(bytes.as_slice());
-    let image = iced_image::new(handle);
+    let settings_bytes = include_bytes!("../../resources/settings.png");
+    let settings_handle = image_widget::Handle::from_bytes(settings_bytes.as_slice());
+    let settings_image: Image = iced_image::new(settings_handle);
+
+    let settings_dark_bytes = include_bytes!("../../resources/settings_dark.png");
+    let settings_handle_dark = image_widget::Handle::from_bytes(settings_dark_bytes.as_slice());
+    let settings_dark: Image = iced_image::new(settings_handle_dark);
 
     let info_bytes = include_bytes!("../../resources/info.png");
     let info_handle = image_widget::Handle::from_bytes(info_bytes.as_slice());
-    let info_image = iced_image::new(info_handle);
+    let info_image: Image = iced_image::new(info_handle);
+
+    let info_dark_bytes = include_bytes!("../../resources/info_dark.png");
+    let info_dark_handle = image_widget::Handle::from_bytes(info_dark_bytes.as_slice());
+    let info_dark: Image = iced_image::new(info_dark_handle);
+
+    let mut dark_icons = false;
+    if let Some(theme) = &state.settings.theme {
+        dark_icons = theme == "Light"
+            || theme == "Solarized Light"
+            || theme == "Gruvbox Light"
+            || theme == "Catppuccin Latte"
+            || theme == "Tokyo Night Light"
+            || theme == "Kanagawa Lotus";
+    }
 
     let current_language = state
         .languages
@@ -91,6 +109,13 @@ pub fn view(state: &State) -> Element<'_, Message> {
         compress_button = compress_button.on_press(Message::Compress);
     }
 
+    let settings_image = if dark_icons {
+        settings_dark
+    } else {
+        settings_image
+    };
+    let info_image = if dark_icons { info_dark } else { info_image };
+
     let header = iced::widget::column![row![
         container(iced::widget::column![row![
             text("Compressr")
@@ -98,7 +123,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 .width(Length::Shrink)
                 .color(color!(255, 255, 255)),
             space::horizontal().width(Length::Fill),
-            button(image.width(28).height(28))
+            button(settings_image.width(28).height(28))
                 .style(button::subtle)
                 .width(Length::Shrink)
                 .height(Length::Shrink)

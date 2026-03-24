@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 mod components;
 mod models;
 mod services;
