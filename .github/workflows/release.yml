@@ -23,7 +23,7 @@ jobs:
             os: windows-latest
             target: x86_64-pc-windows-msvc
             package: binary
-            source_path: target/release/compressr-app.exe
+            source_path: target/x86_64-pc-windows-msvc/release/compressr-app.exe
             asset_name: compressr-app-windows-x64.exe
           - name: macos-x64
             os: macos-latest
