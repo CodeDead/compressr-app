@@ -48,7 +48,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 .on_toggle(Message::DeleteFilesAfterCompressionToggled)
         ],
         row![
-            text(current_language.theme.as_str()).width(Length::Shrink),
+            text(current_language.theme.as_str()).width(Length::FillPortion(1)),
             pick_list(
                 Theme::ALL,
                 Some(ThemeService::string_to_theme(
@@ -61,11 +61,11 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 Message::ThemeChanged
             )
             .placeholder(current_language.select_theme.as_str())
-            .width(Length::Fill)
+            .width(Length::FillPortion(3))
         ]
         .spacing(20),
         row![
-            text(current_language.language.as_str()).width(Length::Shrink),
+            text(current_language.language.as_str()).width(Length::FillPortion(1)),
             pick_list(
                 state
                     .languages
@@ -76,7 +76,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 Message::LanguageChanged
             )
             .placeholder(current_language.select_language.as_str())
-            .width(Length::Fill)
+            .width(Length::FillPortion(3))
         ]
         .spacing(20),
         row![space::vertical(),],
