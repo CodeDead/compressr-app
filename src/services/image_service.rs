@@ -1,4 +1,5 @@
 use image::{ExtendedColorType, GenericImageView, ImageEncoder, ImageFormat};
+use img_parts::ImageEXIF;
 use std::fs;
 use std::fs::File;
 use std::path::Path;
@@ -49,6 +50,7 @@ impl ImageService {
     /// * `quality` - The quality of the output image (0-100).
     /// * `format` - The output format of the image.
     /// * `delete_original` - Whether to delete the original image after compression.
+    /// * `preserve_exif` - Whether to preserve EXIF metadata from the source image.
     ///
     /// # Errors
     ///
@@ -64,6 +66,7 @@ impl ImageService {
         quality: u8,
         format: OutputFormat,
         delete_original: bool,
+        preserve_exif: bool,
     ) -> Result<(), String> {
         if input_path.is_empty() {
             return Err("Input path cannot be empty".to_string());
@@ -83,6 +86,29 @@ impl ImageService {
         }
 
         for file in input_path.clone() {
+            // Extract EXIF bytes from the source file before re-encoding strips them.
+            // Try each supported container format in order; most source images are JPEG.
+            let source_exif: Option<img_parts::Bytes> = if preserve_exif {
+                fs::read(&file).ok().and_then(|raw| {
+                    let b: img_parts::Bytes = raw.into();
+                    img_parts::jpeg::Jpeg::from_bytes(b.clone())
+                        .ok()
+                        .and_then(|j| j.exif())
+                        .or_else(|| {
+                            img_parts::png::Png::from_bytes(b.clone())
+                                .ok()
+                                .and_then(|p| p.exif())
+                        })
+                        .or_else(|| {
+                            img_parts::webp::WebP::from_bytes(b)
+                                .ok()
+                                .and_then(|w| w.exif())
+                        })
+                })
+            } else {
+                None
+            };
+
             let mut img = match image::open(&file) {
                 Ok(img) => img,
                 Err(e) => {
@@ -133,7 +159,7 @@ impl ImageService {
                 output_path.to_string()
             };
 
-            let mut output = match File::create(output_path) {
+            let mut output = match File::create(&output_path) {
                 Ok(f) => f,
                 Err(e) => {
                     return Err(format!("Failed to create output file: {e}"));
@@ -208,6 +234,55 @@ impl ImageService {
                             return Err(format!("Failed to write TIFF header: {e}"));
                         }
                     };
+                }
+            }
+            // Drop the file handle before re-reading the file for EXIF injection.
+            drop(output);
+
+            // Re-inject EXIF bytes into the output file for supported formats.
+            if let Some(exif) = source_exif {
+                let raw = fs::read(&output_path)
+                    .map_err(|e| format!("Failed to read output for EXIF injection: {e}"))?;
+                let b: img_parts::Bytes = raw.into();
+
+                let injected: Option<Vec<u8>> = match format {
+                    OutputFormat::Jpeg => {
+                        let mut jpeg = img_parts::jpeg::Jpeg::from_bytes(b)
+                            .map_err(|e| format!("Failed to parse output JPEG: {e}"))?;
+                        jpeg.set_exif(Some(exif));
+                        let mut buf = Vec::new();
+                        jpeg.encoder()
+                            .write_to(&mut buf)
+                            .map_err(|e| format!("Failed to write EXIF to JPEG: {e}"))?;
+                        Some(buf)
+                    }
+                    OutputFormat::Png => {
+                        let mut png = img_parts::png::Png::from_bytes(b)
+                            .map_err(|e| format!("Failed to parse output PNG: {e}"))?;
+                        png.set_exif(Some(exif));
+                        let mut buf = Vec::new();
+                        png.encoder()
+                            .write_to(&mut buf)
+                            .map_err(|e| format!("Failed to write EXIF to PNG: {e}"))?;
+                        Some(buf)
+                    }
+                    OutputFormat::WebP => {
+                        let mut webp = img_parts::webp::WebP::from_bytes(b)
+                            .map_err(|e| format!("Failed to parse output WebP: {e}"))?;
+                        webp.set_exif(Some(exif));
+                        let mut buf = Vec::new();
+                        webp.encoder()
+                            .write_to(&mut buf)
+                            .map_err(|e| format!("Failed to write EXIF to WebP: {e}"))?;
+                        Some(buf)
+                    }
+                    // GIF, BMP, and TIFF do not support EXIF via img-parts.
+                    _ => None,
+                };
+
+                if let Some(buf) = injected {
+                    fs::write(&output_path, buf)
+                        .map_err(|e| format!("Failed to save EXIF-injected output: {e}"))?;
                 }
             }
         }

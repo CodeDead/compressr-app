@@ -17,6 +17,7 @@ Whether you're a professional photographer or just looking to save space on your
 
 - [X] Batch processing: Compress multiple images at once.
 - [X] Customizable compression settings: Adjust the level of compression to suit your needs.
+- [X] Metadata preservation: Option to keep or remove EXIF metadata from images.
 - [X] User-friendly interface: Easy to navigate and use for all skill levels.
 - [X] Support for various image formats: JPEG, PNG, GIF, and more.
 - [X] Cross-platform compatibility: Available for Windows, macOS, and Linux.
@@ -69,6 +70,7 @@ make release VERSION=1.0.0
 - [env_logger](https://crates.io/crates/env_logger)
 - [reqwest](https://crates.io/crates/reqwest)
 - [semver](https://crates.io/crates/semver)
+- [img-parts](https://crates.io/crates/img-parts)
 
 ## About
 

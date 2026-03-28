@@ -48,6 +48,11 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 .on_toggle(Message::DeleteFilesAfterCompressionToggled)
         ],
         row![
+            checkbox(state.settings.preserve_exif)
+                .label(current_language.preserve_exif_data.as_str())
+                .on_toggle(Message::PreserveExifToggled)
+        ],
+        row![
             text(current_language.theme.as_str()).width(Length::FillPortion(1)),
             pick_list(
                 Theme::ALL,
