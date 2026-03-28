@@ -24,6 +24,7 @@
   "close": "Закрыть",
   "automaticallyCheckForUpdates": "Автоматически проверять обновления",
   "deleteOriginalFilesAfterCompression": "Удалить оригинальные файлы после сжатия",
+  "preserveExifData": "Сохранять данные EXIF",
   "theme": "Тема:",
   "selectTheme": "Выберите тему",
   "language": "Язык:",

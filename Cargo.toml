@@ -4,7 +4,7 @@ description = "Compressr is a simple image compression tool built with Rust and 
 readme = "README.md"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.94.0"
+rust-version = "1.94.1"
 authors = ["CodeDead <admin@codedead.com>"]
 license = "GPL-3.0-only"
 
@@ -20,6 +20,7 @@ log = "0.4.29"
 env_logger = "0.11.10"
 reqwest = { version = "0.13.2", features = ["json"] }
 semver = "1.0.27"
+img-parts = "0.4.0"
 
 [profile.release]
 lto = true

@@ -76,7 +76,11 @@ pub fn view(state: &State) -> Element<'_, Message> {
     let mut browse_input_button = button(current_language.browse.as_str());
     let mut browse_output_button = button(current_language.browse.as_str());
 
-    let mut quality_slider = slider(1..=100, 100, Message::IgnoreQuality);
+    let mut quality_slider = if state.format == OutputFormat::Jpeg {
+        slider(1..=100, state.quality, Message::IgnoreQuality)
+    } else {
+        slider(1..=100, 100, Message::IgnoreQuality)
+    };
     let mut scale_slider = slider(1..=100, state.scale, Message::IgnoreScale);
 
     let mut format_pick_list = pick_list(

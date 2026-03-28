@@ -24,6 +24,7 @@
   "close": "Sluiten",
   "automaticallyCheckForUpdates": "Automatisch controleren op updates",
   "deleteOriginalFilesAfterCompression": "Originele bestanden verwijderen na compressie",
+  "preserveExifData": "EXIF-gegevens bewaren",
   "theme": "Thema:",
   "selectTheme": "Selecteer thema",
   "language": "Taal:",

@@ -10,6 +10,7 @@ pub struct Settings {
     pub theme: Option<String>,
     pub delete_files_after_compression: bool,
     pub language_key: String,
+    pub preserve_exif: bool,
 }
 
 impl Default for Settings {
@@ -27,6 +28,7 @@ impl Default for Settings {
             theme: Some(Theme::Oxocarbon.to_string()),
             delete_files_after_compression: false,
             language_key: String::from("en_US"),
+            preserve_exif: false,
         };
 
         // Save the default settings to a config file

@@ -41,6 +41,7 @@ pub enum Message {
     IgnoreFormatSelected(OutputFormat),
     AutoUpdateToggled(bool),
     DeleteFilesAfterCompressionToggled(bool),
+    PreserveExifToggled(bool),
     ThemeChanged(Theme),
     ResetSettings,
     CheckForUpdates(bool),
@@ -304,6 +305,7 @@ impl App {
                 let format = self.state.format;
                 let image_service = self.image_service.clone();
                 let delete_original = self.state.settings.delete_files_after_compression;
+                let preserve_exif = self.state.settings.preserve_exif;
 
                 Task::perform(
                     async move {
@@ -317,6 +319,7 @@ impl App {
                                 quality,
                                 format,
                                 delete_original,
+                                preserve_exif,
                             )
                         })
                         .await
@@ -419,7 +422,7 @@ impl App {
                 window::position(*last_window)
                     .then(|_| {
                         let window_icon = Self::load_icon();
-                        let settings = Self::create_window_settings((500.0, 300.0), window_icon);
+                        let settings = Self::create_window_settings((500.0, 325.0), window_icon);
                         let (_, open) = window::open(settings);
                         open
                     })
@@ -442,6 +445,11 @@ impl App {
             }
             Message::DeleteFilesAfterCompressionToggled(delete) => {
                 self.state.settings.delete_files_after_compression = delete;
+                self.state.settings.save();
+                Task::none()
+            }
+            Message::PreserveExifToggled(preserve) => {
+                self.state.settings.preserve_exif = preserve;
                 self.state.settings.save();
                 Task::none()
             }

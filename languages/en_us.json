@@ -24,6 +24,7 @@
   "close": "Close",
   "automaticallyCheckForUpdates": "Automatically check for updates",
   "deleteOriginalFilesAfterCompression": "Delete original files after compression",
+  "preserveExifData": "Preserve EXIF data",
   "theme": "Theme:",
   "selectTheme": "Select theme",
   "language": "Language:", 

@@ -37,6 +37,8 @@ pub struct Language {
     pub automatically_check_for_updates: String,
     #[serde(rename = "deleteOriginalFilesAfterCompression")]
     pub delete_original_files_after_compression: String,
+    #[serde(rename = "preserveExifData")]
+    pub preserve_exif_data: String,
     pub theme: String,
     #[serde(rename = "selectTheme")]
     pub select_theme: String,
