@@ -17,6 +17,7 @@ fn main() -> iced::Result {
     env_logger::init();
 
     info!("Starting Compressr");
+
     iced::daemon(App::new, App::update, App::view)
         .subscription(App::subscription)
         .title(App::title)
