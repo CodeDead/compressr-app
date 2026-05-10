@@ -43,6 +43,10 @@ pub fn view(state: &State) -> Element<'_, Message> {
                     .width(Length::Shrink)
                     .on_press(Message::OpenUpdateInformation)),
             space::horizontal().width(Length::Fill),
+            button(current_language.close.as_str())
+                .width(Length::Shrink)
+                .on_press(Message::CloseUpdateView),
+            space::horizontal().width(Length::Fixed(8.0)),
             button(current_language.download.as_str())
                 .style(button::primary)
                 .width(Length::Shrink)

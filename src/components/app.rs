@@ -3,7 +3,7 @@ use crate::services;
 use crate::services::image_service::{ImageService, OutputFormat};
 use crate::services::theme_service::ThemeService;
 use crate::services::update_service::{UpdateInfo, UpdateService};
-use crate::views::{about_view, error_view, main_view, settings_view, update_view};
+use crate::views::{about_view, error_view, main_view, no_update_view, settings_view, update_view};
 use iced::widget::space;
 use iced::window::Position;
 #[cfg(target_os = "linux")]
@@ -45,17 +45,21 @@ pub enum Message {
     ThemeChanged(Theme),
     ResetSettings,
     CheckForUpdates(bool),
-    UpdateCheckCompleted(Result<Option<UpdateInfo>, String>),
+    UpdateCheckCompleted {
+        result: Result<Option<UpdateInfo>, String>,
+        show_no_update_view: bool,
+    },
     OpenUpdateInformation,
     DownloadUpdate,
+    CloseUpdateView,
     CloseErrorView,
+    CloseNoUpdateView,
     OpenErrorView,
     CopyError,
     OpenCodeDeadPage,
     OpenDonationPage,
     OpenAbout,
     LanguageChanged(String),
-    ClearLatestVersionAlert,
 }
 
 pub struct App {
@@ -236,7 +240,10 @@ impl App {
                                 .check_for_updates(current_semver, platform, arch)
                                 .await
                         },
-                        Message::UpdateCheckCompleted,
+                        |result| Message::UpdateCheckCompleted {
+                            result,
+                            show_no_update_view: false,
+                        },
                     );
                 }
 
@@ -469,9 +476,6 @@ impl App {
                 Task::none()
             }
             Message::CheckForUpdates(show) => {
-                self.state.show_latest_version = show;
-                self.state.latest_version = false;
-
                 let current_semver = env!("CARGO_PKG_VERSION").to_string();
                 let platform = crate::get_platform();
                 let arch = Self::get_arch();
@@ -483,61 +487,82 @@ impl App {
                             .check_for_updates(current_semver, platform, arch)
                             .await
                     },
-                    Message::UpdateCheckCompleted,
+                    move |result| Message::UpdateCheckCompleted {
+                        result,
+                        show_no_update_view: show,
+                    },
                 )
             }
-            Message::UpdateCheckCompleted(e) => {
-                match e {
-                    Ok(Some(update_info)) => {
-                        info!("Update available: {}", update_info.semver);
+            Message::UpdateCheckCompleted {
+                result,
+                show_no_update_view,
+            } => match result {
+                Ok(Some(update_info)) => {
+                    info!("Update available: {}", update_info.semver);
 
-                        self.state.last_error_message = None;
-                        self.state.update_version = Some(update_info.semver.clone());
-                        self.state.update_download_url = Some(update_info.download_url.clone());
-                        self.state.update_info_url = update_info.info_url.clone();
+                    self.state.last_error_message = None;
+                    self.state.update_version = Some(update_info.semver.clone());
+                    self.state.update_download_url = Some(update_info.download_url.clone());
+                    self.state.update_info_url = update_info.info_url.clone();
 
-                        let Some(last_window) = self.windows.keys().last() else {
-                            return Task::none();
-                        };
+                    let Some(last_window) = self.windows.keys().last() else {
+                        return Task::none();
+                    };
 
-                        if self.windows.values().any(|w| w.window_id == 2) {
-                            return Task::none();
-                        }
-
-                        let title = current_language.compressr_update.clone();
-
-                        window::position(*last_window)
-                            .then(|_| {
-                                let window_icon = Self::load_icon();
-                                let settings =
-                                    Self::create_window_settings((400.0, 190.0), window_icon);
-                                let (_, open) = window::open(settings);
-                                open
-                            })
-                            .map(move |r| Message::ViewOpened(title.clone(), 2, r))
+                    if self.windows.values().any(|w| w.window_id == 2) {
+                        return Task::none();
                     }
-                    Ok(None) => {
-                        info!("No updates available");
 
-                        self.state.latest_version = true;
-                        self.state.last_error_message = None;
-                        self.state.update_version = None;
-                        self.state.update_download_url = None;
-                        self.state.update_info_url = None;
+                    let title = current_language.compressr_update.clone();
 
-                        // Hide the badge to display the "latest version installed" message in the main view
-                        Task::perform(
-                            tokio::time::sleep(std::time::Duration::from_secs(10)),
-                            |_| Message::ClearLatestVersionAlert,
-                        )
-                    }
-                    Err(err) => {
-                        error!("Failed to check for updates: {err}");
-                        self.state.last_error_message = Some(err);
-                        Task::perform(async {}, |_| Message::OpenErrorView)
-                    }
+                    window::position(*last_window)
+                        .then(|_| {
+                            let window_icon = Self::load_icon();
+                            let settings =
+                                Self::create_window_settings((400.0, 190.0), window_icon);
+                            let (_, open) = window::open(settings);
+                            open
+                        })
+                        .map(move |r| Message::ViewOpened(title.clone(), 2, r))
                 }
-            }
+                Ok(None) => {
+                    info!("No updates available");
+
+                    self.state.last_error_message = None;
+                    self.state.update_version = None;
+                    self.state.update_download_url = None;
+                    self.state.update_info_url = None;
+
+                    if !show_no_update_view {
+                        return Task::none();
+                    }
+
+                    let Some(last_window) = self.windows.keys().last() else {
+                        return Task::none();
+                    };
+
+                    if self.windows.values().any(|w| w.window_id == 5) {
+                        return Task::none();
+                    }
+
+                    let title = current_language.compressr_update.clone();
+
+                    window::position(*last_window)
+                        .then(|_| {
+                            let window_icon = Self::load_icon();
+                            let settings =
+                                Self::create_window_settings((400.0, 180.0), window_icon);
+                            let (_, open) = window::open(settings);
+                            open
+                        })
+                        .map(move |r| Message::ViewOpened(title.clone(), 5, r))
+                }
+                Err(err) => {
+                    error!("Failed to check for updates: {err}");
+                    self.state.last_error_message = Some(err);
+                    Task::perform(async {}, |_| Message::OpenErrorView)
+                }
+            },
             Message::OpenUpdateInformation => {
                 let info_url = self
                     .state
@@ -576,9 +601,25 @@ impl App {
                     }
                 }
             }
+            Message::CloseUpdateView => {
+                if let Some(id) = self.find_window_by_id(2) {
+                    self.windows.remove(&id);
+                    return window::close(id);
+                }
+
+                Task::none()
+            }
             Message::CloseErrorView => {
                 // Get the window ID of the error view (window_id 3) and close it
                 if let Some(id) = self.find_window_by_id(3) {
+                    self.windows.remove(&id);
+                    return window::close(id);
+                }
+
+                Task::none()
+            }
+            Message::CloseNoUpdateView => {
+                if let Some(id) = self.find_window_by_id(5) {
                     self.windows.remove(&id);
                     return window::close(id);
                 }
@@ -654,11 +695,6 @@ impl App {
 
                 Task::none()
             }
-            Message::ClearLatestVersionAlert => {
-                self.state.show_latest_version = false;
-
-                Task::none()
-            }
         }
     }
 
@@ -679,6 +715,7 @@ impl App {
                 2 => update_view::view(&self.state),
                 3 => error_view::view(&self.state),
                 4 => about_view::view(&self.state),
+                5 => no_update_view::view(&self.state),
                 _ => space().into(),
             }
         } else {

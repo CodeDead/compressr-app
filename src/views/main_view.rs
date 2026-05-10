@@ -132,7 +132,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 .width(Length::Shrink)
                 .height(Length::Shrink)
                 .on_press(Message::OpenSettings),
-            text(" "),
+            space::horizontal().width(Length::Fixed(8.0)),
             button(info_image.width(28).height(28))
                 .style(button::subtle)
                 .width(Length::Shrink)
@@ -209,7 +209,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
             )
             .on_input(Message::HeightChanged),
         ],
-        row![space::vertical(),],
+        row![space::vertical()],
         row![
             state
                 .is_compressing
@@ -219,14 +219,6 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 .compression_succeeded
                 .then(|| badge(Text::new(current_language.compressed.as_str()))
                     .style(style::badge::success)),
-            state.show_latest_version.then(|| {
-                state.latest_version.then(|| {
-                    badge(Text::new(
-                        current_language.latest_version_installed.as_str(),
-                    ))
-                    .style(style::badge::success)
-                })
-            }),
             space::horizontal(),
             compress_button,
         ],
