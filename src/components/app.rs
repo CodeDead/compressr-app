@@ -45,7 +45,10 @@ pub enum Message {
     ThemeChanged(Theme),
     ResetSettings,
     CheckForUpdates(bool),
-    UpdateCheckCompleted(Result<Option<UpdateInfo>, String>),
+    UpdateCheckCompleted {
+        result: Result<Option<UpdateInfo>, String>,
+        show_no_update_view: bool,
+    },
     OpenUpdateInformation,
     DownloadUpdate,
     CloseUpdateView,
@@ -237,7 +240,10 @@ impl App {
                                 .check_for_updates(current_semver, platform, arch)
                                 .await
                         },
-                        Message::UpdateCheckCompleted,
+                        |result| Message::UpdateCheckCompleted {
+                            result,
+                            show_no_update_view: false,
+                        },
                     );
                 }
 
@@ -470,8 +476,6 @@ impl App {
                 Task::none()
             }
             Message::CheckForUpdates(show) => {
-                self.state.show_no_update_view = show;
-
                 let current_semver = env!("CARGO_PKG_VERSION").to_string();
                 let platform = crate::get_platform();
                 let arch = Self::get_arch();
@@ -483,14 +487,19 @@ impl App {
                             .check_for_updates(current_semver, platform, arch)
                             .await
                     },
-                    Message::UpdateCheckCompleted,
+                    move |result| Message::UpdateCheckCompleted {
+                        result,
+                        show_no_update_view: show,
+                    },
                 )
             }
-            Message::UpdateCheckCompleted(e) => match e {
+            Message::UpdateCheckCompleted {
+                result,
+                show_no_update_view,
+            } => match result {
                 Ok(Some(update_info)) => {
                     info!("Update available: {}", update_info.semver);
 
-                    self.state.show_no_update_view = false;
                     self.state.last_error_message = None;
                     self.state.update_version = Some(update_info.semver.clone());
                     self.state.update_download_url = Some(update_info.download_url.clone());
@@ -519,9 +528,6 @@ impl App {
                 Ok(None) => {
                     info!("No updates available");
 
-                    let show_no_update_view = self.state.show_no_update_view;
-
-                    self.state.show_no_update_view = false;
                     self.state.last_error_message = None;
                     self.state.update_version = None;
                     self.state.update_download_url = None;
@@ -553,7 +559,6 @@ impl App {
                 }
                 Err(err) => {
                     error!("Failed to check for updates: {err}");
-                    self.state.show_no_update_view = false;
                     self.state.last_error_message = Some(err);
                     Task::perform(async {}, |_| Message::OpenErrorView)
                 }
