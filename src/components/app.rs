@@ -218,23 +218,45 @@ impl App {
                 if let Some(folder) = FileDialog::new().pick_folder() {
                     const IMAGE_EXTENSIONS: &[&str] =
                         &["png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff"];
-                    let mut files: Vec<String> = std::fs::read_dir(&folder)
-                        .into_iter()
-                        .flatten()
-                        .filter_map(|entry| entry.ok())
-                        .filter_map(|entry| {
-                            let path = entry.path();
-                            if !path.is_file() {
-                                return None;
+                    match std::fs::read_dir(&folder) {
+                        Err(e) => {
+                            self.state.last_error_message =
+                                Some(format!("Could not read folder '{}': {e}", folder.display()));
+                            self.state.compression_succeeded = false;
+                            return Task::done(Message::OpenErrorView);
+                        }
+                        Ok(entries) => {
+                            let mut entry_errors: Vec<String> = Vec::new();
+                            let mut files: Vec<String> = entries
+                                .filter_map(|entry| match entry {
+                                    Err(e) => {
+                                        entry_errors.push(format!("Directory entry error: {e}"));
+                                        None
+                                    }
+                                    Ok(entry) => {
+                                        let path = entry.path();
+                                        if !path.is_file() {
+                                            return None;
+                                        }
+                                        let ext =
+                                            path.extension()?.to_string_lossy().to_lowercase();
+                                        IMAGE_EXTENSIONS
+                                            .contains(&ext.as_str())
+                                            .then(|| path.display().to_string())
+                                    }
+                                })
+                                .collect();
+
+                            if !entry_errors.is_empty() {
+                                self.state.last_error_message = Some(entry_errors.join("\n"));
+                                self.state.compression_succeeded = false;
+                                return Task::done(Message::OpenErrorView);
                             }
-                            let ext = path.extension()?.to_string_lossy().to_lowercase();
-                            IMAGE_EXTENSIONS
-                                .contains(&ext.as_str())
-                                .then(|| path.display().to_string())
-                        })
-                        .collect();
-                    files.sort();
-                    self.state.input_path = files;
+
+                            files.sort();
+                            self.state.input_path = files;
+                        }
+                    }
                 }
                 self.state.compression_succeeded = false;
                 Task::none()

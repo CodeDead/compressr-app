@@ -7,12 +7,12 @@ use std::fs;
 const CONFIG_PATH: &str = "config.json";
 const CONFIG_TMP_PATH: &str = "config.json.tmp";
 
-/// Serialises a [`Theme`] as its display name string.
+/// Serializes a [`Theme`] as its display name string.
 fn serialize_theme<S: Serializer>(theme: &Theme, s: S) -> Result<S::Ok, S::Error> {
     s.serialize_str(&theme.to_string())
 }
 
-/// Deserialises a [`Theme`] from its display name string, falling back to `Oxocarbon`.
+/// Deserializes a [`Theme`] from its display name string, falling back to `Oxocarbon`.
 fn deserialize_theme<'de, D: Deserializer<'de>>(d: D) -> Result<Theme, D::Error> {
     let s = String::deserialize(d)?;
     Ok(string_to_theme(&s))
