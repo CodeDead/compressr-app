@@ -269,11 +269,10 @@ impl App {
                 self.state.show_input_dropdown = false;
                 Task::none()
             }
-
-            // ── Compression ───────────────────────────────────────────────────
             Message::Compress => {
                 self.state.is_compressing = true;
                 self.state.compression_succeeded = false;
+                self.state.show_input_dropdown = false;
 
                 let input = self.state.input_path.clone();
                 let output = self.state.output_path.clone();
@@ -312,8 +311,6 @@ impl App {
                     }
                 }
             }
-
-            // ── Compression parameters ────────────────────────────────────────
             Message::FormatSelected(f) => {
                 self.state.format = f;
                 if f != OutputFormat::Jpeg {
@@ -643,24 +640,21 @@ async fn compress_images(
                     // final extension so the stem remains readable.
                     // e.g. "out/photo.jpg_compressed.jpg"
                     //   → "out/photo.jpg_compressed_2.jpg"
-                    let path = std::path::Path::new(&candidate);
+                    let path = std::path::PathBuf::from(&candidate);
                     let ext = path
                         .extension()
                         .and_then(|e| e.to_str())
-                        .unwrap_or_default();
+                        .unwrap_or_default()
+                        .to_owned();
                     let stem = path
                         .file_stem()
                         .and_then(|s| s.to_str())
-                        .unwrap_or("output");
-                    let parent = path
-                        .parent()
-                        .map(|p| p.to_string_lossy().into_owned())
-                        .unwrap_or_default();
-                    let disambiguated = if parent.is_empty() {
-                        format!("{}_{}.{}", stem, count, ext)
-                    } else {
-                        format!("{}/{}_{}.{}", parent, stem, count, ext)
-                    };
+                        .unwrap_or("output")
+                        .to_owned();
+                    let disambiguated = path
+                        .with_file_name(format!("{}_{}.{}", stem, count, ext))
+                        .to_string_lossy()
+                        .into_owned();
                     // Update the seen-count for the new name too so that a
                     // third collision doesn't accidentally reuse _2.
                     seen.entry(disambiguated.clone()).or_insert(0);
