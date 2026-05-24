@@ -27,12 +27,14 @@
   "preserveExifData": "Preserve EXIF data",
   "theme": "Theme:",
   "selectTheme": "Select theme",
-  "language": "Language:", 
+  "language": "Language:",
   "selectLanguage": "Select language",
   "checkForUpdates": "Check for updates",
   "resetAllSettings": "Reset all settings",
   "newVersionAvailable": "Version {version} is now available! Would you like to download this version?",
   "information": "Information",
   "download": "Download",
-  "unknownError": "An unknown error occurred. Please try again."
+  "unknownError": "An unknown error occurred. Please try again.",
+  "selectFiles": "Select Files",
+  "selectFolder": "Select Folder"
 }

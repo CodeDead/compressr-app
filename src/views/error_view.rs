@@ -14,11 +14,7 @@ use iced::{Element, Length, color};
 ///
 /// An Element representing the error view of the application, which can be rendered by the Iced framework.
 pub fn view(state: &State) -> Element<'_, Message> {
-    let current_language = state
-        .languages
-        .iter()
-        .find(|l| l.language_key == state.settings.language_key);
-    let current_language = current_language.unwrap_or(&state.languages[0]);
+    let current_language = state.current_language();
 
     let mut has_error_to_copy = true;
     let last_error_message = match state.last_error_message.clone() {

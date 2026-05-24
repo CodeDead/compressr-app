@@ -55,4 +55,8 @@ pub struct Language {
     pub download: String,
     #[serde(rename = "unknownError")]
     pub unknown_error: String,
+    #[serde(rename = "selectFiles")]
+    pub select_files: String,
+    #[serde(rename = "selectFolder")]
+    pub select_folder: String,
 }

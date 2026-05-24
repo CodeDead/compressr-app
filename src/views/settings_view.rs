@@ -1,7 +1,6 @@
 use crate::components::app::Message;
 use crate::components::header::get_header;
 use crate::components::state::State;
-use crate::services::theme_service::ThemeService;
 use iced::widget::{button, checkbox, container, pick_list, row, space, text};
 use iced::{Element, Length, Theme, color};
 
@@ -15,17 +14,7 @@ use iced::{Element, Length, Theme, color};
 ///
 /// An Element representing the settings view of the application, which can be rendered by the Iced framework.
 pub fn view(state: &State) -> Element<'_, Message> {
-    let current_language = state
-        .languages
-        .iter()
-        .find(|l| l.language_key == state.settings.language_key);
-    let current_language = current_language.unwrap_or(&state.languages[0]);
-
-    let selected_language = state
-        .languages
-        .iter()
-        .find(|l| l.language_key == state.settings.language_key);
-    let selected_language = selected_language.unwrap_or(&state.languages[0]);
+    let current_language = state.current_language();
 
     let header = get_header(
         current_language.compressr_settings.clone(),
@@ -56,13 +45,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
             text(current_language.theme.as_str()).width(Length::FillPortion(1)),
             pick_list(
                 Theme::ALL,
-                Some(ThemeService::string_to_theme(
-                    &state
-                        .settings
-                        .theme
-                        .clone()
-                        .unwrap_or(Theme::Oxocarbon.to_string())
-                )),
+                Some(state.settings.theme.clone()),
                 Message::ThemeChanged
             )
             .placeholder(current_language.select_theme.as_str())
@@ -77,7 +60,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
                     .iter()
                     .map(|l| l.language_name.clone())
                     .collect::<Vec<String>>(),
-                Some(selected_language.language_name.clone()),
+                Some(current_language.language_name.clone()),
                 Message::LanguageChanged
             )
             .placeholder(current_language.select_language.as_str())

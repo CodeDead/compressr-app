@@ -27,6 +27,7 @@ pub struct State {
     pub update_info_url: Option<String>,
     pub languages: Vec<Language>,
     pub main_view_icons: MainViewIcons,
+    pub show_input_dropdown: bool,
 }
 
 impl Default for State {
@@ -36,38 +37,23 @@ impl Default for State {
     ///
     /// A State instance with default values.
     fn default() -> Self {
-        let en_us_bytes = include_bytes!("../../languages/en_us.json");
-        let fr_fr_bytes = include_bytes!("../../languages/fr_fr.json");
-        let nl_nl_bytes = include_bytes!("../../languages/nl_nl.json");
-        let ru_ru_bytes = include_bytes!("../../languages/ru_ru.json");
-
-        let en_us_string = String::from_utf8_lossy(en_us_bytes).to_string();
-        let fr_fr_string = String::from_utf8_lossy(fr_fr_bytes).to_string();
-        let nl_nl_string = String::from_utf8_lossy(nl_nl_bytes).to_string();
-        let ru_ru_string = String::from_utf8_lossy(ru_ru_bytes).to_string();
-
-        let en_us_language =
-            serde_json::from_str::<Language>(&en_us_string).unwrap_or_else(|err| {
-                panic!("Failed to deserialize en_US language file: {err}");
-            });
-        let fr_fr_language =
-            serde_json::from_str::<Language>(&fr_fr_string).unwrap_or_else(|err| {
-                panic!("Failed to deserialize fr_FR language file: {err}");
-            });
-        let nl_nl_language =
-            serde_json::from_str::<Language>(&nl_nl_string).unwrap_or_else(|err| {
-                panic!("Failed to deserialize nl_NL language file: {err}");
-            });
-        let ru_ru_language =
-            serde_json::from_str::<Language>(&ru_ru_string).unwrap_or_else(|err| {
-                panic!("Failed to deserialize ru_RU language file: {err}");
-            });
+        /// Loads and deserializes a language JSON file from embedded bytes.
+        fn load_lang(bytes: &[u8], name: &str) -> Language {
+            let json = String::from_utf8_lossy(bytes);
+            serde_json::from_str::<Language>(&json)
+                .unwrap_or_else(|err| panic!("Failed to deserialize {name} language file: {err}"))
+        }
 
         let languages = vec![
-            en_us_language,
-            fr_fr_language,
-            nl_nl_language,
-            ru_ru_language,
+            load_lang(include_bytes!("../../languages/en_us.json"), "en_US"),
+            load_lang(include_bytes!("../../languages/fr_fr.json"), "fr_FR"),
+            load_lang(include_bytes!("../../languages/nl_nl.json"), "nl_NL"),
+            load_lang(include_bytes!("../../languages/ru_ru.json"), "ru_RU"),
+            load_lang(include_bytes!("../../languages/uk_ua.json"), "uk_UA"),
+            load_lang(include_bytes!("../../languages/zh_cn.json"), "zh_CN"),
+            load_lang(include_bytes!("../../languages/es_es.json"), "es_ES"),
+            load_lang(include_bytes!("../../languages/pt_pt.json"), "pt_PT"),
+            load_lang(include_bytes!("../../languages/ja_jp.json"), "ja_JP"),
         ];
         let main_view_icons = MainViewIcons {
             settings: image::Handle::from_bytes(
@@ -99,6 +85,22 @@ impl Default for State {
             update_info_url: None,
             languages,
             main_view_icons,
+            show_input_dropdown: false,
         }
+    }
+}
+
+impl State {
+    /// Returns a reference to the language matching the current `language_key` setting,
+    /// falling back to the first language if no match is found.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the matching `Language` or the first language if no match is found.
+    pub fn current_language(&self) -> &Language {
+        self.languages
+            .iter()
+            .find(|l| l.language_key == self.settings.language_key)
+            .unwrap_or(&self.languages[0])
     }
 }
