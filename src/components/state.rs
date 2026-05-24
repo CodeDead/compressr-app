@@ -1,6 +1,14 @@
 use crate::components::settings::Settings;
 use crate::models::language::Language;
 use crate::services::image_service::OutputFormat;
+use iced::widget::image;
+
+pub struct MainViewIcons {
+    pub settings: image::Handle,
+    pub settings_dark: image::Handle,
+    pub info: image::Handle,
+    pub info_dark: image::Handle,
+}
 
 pub struct State {
     pub input_path: Vec<String>,
@@ -18,6 +26,7 @@ pub struct State {
     pub update_download_url: Option<String>,
     pub update_info_url: Option<String>,
     pub languages: Vec<Language>,
+    pub main_view_icons: MainViewIcons,
 }
 
 impl Default for State {
@@ -60,6 +69,18 @@ impl Default for State {
             nl_nl_language,
             ru_ru_language,
         ];
+        let main_view_icons = MainViewIcons {
+            settings: image::Handle::from_bytes(
+                include_bytes!("../../resources/settings.png").as_slice(),
+            ),
+            settings_dark: image::Handle::from_bytes(
+                include_bytes!("../../resources/settings_dark.png").as_slice(),
+            ),
+            info: image::Handle::from_bytes(include_bytes!("../../resources/info.png").as_slice()),
+            info_dark: image::Handle::from_bytes(
+                include_bytes!("../../resources/info_dark.png").as_slice(),
+            ),
+        };
 
         State {
             input_path: Vec::new(),
@@ -77,6 +98,7 @@ impl Default for State {
             update_download_url: None,
             update_info_url: None,
             languages,
+            main_view_icons,
         }
     }
 }

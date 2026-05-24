@@ -1,8 +1,10 @@
 use crate::models::version::Version;
+use std::time::Duration;
 
 #[derive(Clone)]
 pub struct UpdateService {
     update_server: String,
+    client: reqwest::Client,
 }
 
 #[derive(Debug, Clone)]
@@ -23,7 +25,16 @@ impl UpdateService {
     ///
     /// A new instance of UpdateService
     pub fn new(update_server: String) -> Self {
-        Self { update_server }
+        let client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(10))
+            .build()
+            .expect("Failed to create update HTTP client");
+
+        Self {
+            update_server,
+            client,
+        }
     }
 
     /// Checks for updates by fetching version information from the update server and comparing it with the current version.
@@ -43,20 +54,26 @@ impl UpdateService {
         platform: String,
         arch: String,
     ) -> Result<Option<UpdateInfo>, String> {
-        let response = reqwest::get(&self.update_server)
+        let response = self
+            .client
+            .get(&self.update_server)
+            .send()
             .await
             .map_err(|e| format!("Failed to fetch version info: {e}"))?;
         if response.status().is_success() {
-            let version_info: Version = response
-                .json()
+            let response_bytes = response
+                .bytes()
                 .await
+                .map_err(|e| format!("Failed to read version info: {e}"))?;
+
+            let version_info: Version = serde_json::from_slice(&response_bytes)
                 .map_err(|e| format!("Failed to parse version info: {e}"))?;
 
             let version_parsed =
-                semver::Version::parse(&version_info.semver.trim_start_matches('v'))
+                semver::Version::parse(version_info.semver.trim_start_matches('v'))
                     .map_err(|e| format!("Failed to parse version semver: {e}"))?;
             let current_semver_parsed =
-                semver::Version::parse(&current_semver.trim_start_matches('v'))
+                semver::Version::parse(current_semver.trim_start_matches('v'))
                     .map_err(|e| format!("Failed to parse current version semver: {e}"))?;
 
             if version_parsed > current_semver_parsed {

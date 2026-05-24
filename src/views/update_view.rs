@@ -26,6 +26,13 @@ pub fn view(state: &State) -> Element<'_, Message> {
     );
 
     let new_version = state.update_version.clone().unwrap_or("".to_string());
+    let mut download_button = button(current_language.download.as_str())
+        .style(button::primary)
+        .width(Length::Shrink);
+
+    if !state.is_compressing {
+        download_button = download_button.on_press(Message::DownloadUpdate);
+    }
 
     let content = iced::widget::column![
         row![text(
@@ -47,10 +54,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 .width(Length::Shrink)
                 .on_press(Message::CloseUpdateView),
             space::horizontal().width(Length::Fixed(8.0)),
-            button(current_language.download.as_str())
-                .style(button::primary)
-                .width(Length::Shrink)
-                .on_press(Message::DownloadUpdate),
+            download_button,
         ]
     ]
     .spacing(15)

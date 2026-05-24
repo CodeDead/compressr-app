@@ -1,10 +1,11 @@
 pub(crate) use crate::components::app::Message;
 use crate::components::state::State;
 use crate::services::image_service::OutputFormat;
-use iced::widget::{Image as iced_image, Image, Text, image as image_widget};
+use iced::widget::{Image, Text};
 use iced::widget::{button, container, pick_list, row, slider, space, text, text_input};
 use iced::{Element, Length, color};
-use iced_aw::{helpers::badge, style};
+use iced_aw::widget::LabeledFrame;
+use iced_aw::{helpers::badge, number_input, style};
 
 impl std::fmt::Display for OutputFormat {
     /// Formats the OutputFormat enum as a user-friendly string for display in the UI.
@@ -38,22 +39,6 @@ impl std::fmt::Display for OutputFormat {
 ///
 /// An Element representing the main view of the application, which can be rendered by the Iced framework.
 pub fn view(state: &State) -> Element<'_, Message> {
-    let settings_bytes = include_bytes!("../../resources/settings.png");
-    let settings_handle = image_widget::Handle::from_bytes(settings_bytes.as_slice());
-    let settings_image: Image = iced_image::new(settings_handle);
-
-    let settings_dark_bytes = include_bytes!("../../resources/settings_dark.png");
-    let settings_handle_dark = image_widget::Handle::from_bytes(settings_dark_bytes.as_slice());
-    let settings_dark: Image = iced_image::new(settings_handle_dark);
-
-    let info_bytes = include_bytes!("../../resources/info.png");
-    let info_handle = image_widget::Handle::from_bytes(info_bytes.as_slice());
-    let info_image: Image = iced_image::new(info_handle);
-
-    let info_dark_bytes = include_bytes!("../../resources/info_dark.png");
-    let info_dark_handle = image_widget::Handle::from_bytes(info_dark_bytes.as_slice());
-    let info_dark: Image = iced_image::new(info_dark_handle);
-
     let mut dark_icons = false;
     if let Some(theme) = &state.settings.theme {
         dark_icons = theme == "Light"
@@ -113,12 +98,16 @@ pub fn view(state: &State) -> Element<'_, Message> {
         compress_button = compress_button.on_press(Message::Compress);
     }
 
-    let settings_image = if dark_icons {
-        settings_dark
+    let settings_image: Image = if dark_icons {
+        Image::new(state.main_view_icons.settings_dark.clone())
     } else {
-        settings_image
+        Image::new(state.main_view_icons.settings.clone())
     };
-    let info_image = if dark_icons { info_dark } else { info_image };
+    let info_image: Image = if dark_icons {
+        Image::new(state.main_view_icons.info_dark.clone())
+    } else {
+        Image::new(state.main_view_icons.info.clone())
+    };
 
     let header = iced::widget::column![row![
         container(iced::widget::column![row![
@@ -155,6 +144,10 @@ pub fn view(state: &State) -> Element<'_, Message> {
             snap: false,
         })
     ]];
+
+    let width = state.width.unwrap_or(0) as i32;
+    let height = state.height.unwrap_or(0) as i32;
+
     let content = iced::widget::column![
         row![
             container(text(current_language.input.as_str())).width(Length::FillPortion(1)),
@@ -184,30 +177,20 @@ pub fn view(state: &State) -> Element<'_, Message> {
         ]
         .spacing(10),
         row![
-            text_input(
+            LabeledFrame::new(
                 current_language.width.as_str(),
-                &match state.width {
-                    None => {
-                        String::new()
-                    }
-                    Some(v) => {
-                        v.to_string()
-                    }
-                }
+                number_input(&width, 0..=i32::MAX, Message::WidthChanged)
+                    .width(Length::Fill)
+                    .step(1)
             )
-            .on_input(Message::WidthChanged),
-            text_input(
+            .width(Length::Fill),
+            LabeledFrame::new(
                 current_language.height.as_str(),
-                &match state.height {
-                    None => {
-                        String::new()
-                    }
-                    Some(v) => {
-                        v.to_string()
-                    }
-                }
+                number_input(&height, 0..=i32::MAX, Message::HeightChanged)
+                    .width(Length::Fill)
+                    .step(1),
             )
-            .on_input(Message::HeightChanged),
+            .width(Length::Fill)
         ],
         row![space::vertical()],
         row![
