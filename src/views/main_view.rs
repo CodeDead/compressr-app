@@ -3,7 +3,7 @@ use crate::components::state::State;
 use crate::services::image_service::OutputFormat;
 use iced::widget::{Image, Text};
 use iced::widget::{button, column, container, pick_list, row, slider, space, text, text_input};
-use iced::{Element, Length, color};
+use iced::{Element, Length, Theme, color};
 use iced_aw::widget::LabeledFrame;
 use iced_aw::{DropDown, drop_down, helpers::badge, number_input, style};
 
@@ -17,13 +17,15 @@ use iced_aw::{DropDown, drop_down, helpers::badge, number_input, style};
 ///
 /// An Element representing the main view of the application, which can be rendered by the Iced framework.
 pub fn view(state: &State) -> Element<'_, Message> {
-    let theme_name = state.settings.theme.to_string();
-    let dark_icons = theme_name == "Light"
-        || theme_name == "Solarized Light"
-        || theme_name == "Gruvbox Light"
-        || theme_name == "Catppuccin Latte"
-        || theme_name == "Tokyo Night Light"
-        || theme_name == "Kanagawa Lotus";
+    let dark_icons = matches!(
+        state.settings.theme,
+        Theme::Light
+            | Theme::SolarizedLight
+            | Theme::GruvboxLight
+            | Theme::CatppuccinLatte
+            | Theme::TokyoNightLight
+            | Theme::KanagawaLotus
+    );
 
     let current_language = state.current_language();
 
