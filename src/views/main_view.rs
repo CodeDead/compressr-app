@@ -2,32 +2,10 @@ pub(crate) use crate::components::app::Message;
 use crate::components::state::State;
 use crate::services::image_service::OutputFormat;
 use iced::widget::{Image, Text};
-use iced::widget::{button, container, pick_list, row, slider, space, text, text_input};
+use iced::widget::{button, column, container, pick_list, row, slider, space, text, text_input};
 use iced::{Element, Length, color};
 use iced_aw::widget::LabeledFrame;
-use iced_aw::{helpers::badge, number_input, style};
-
-impl std::fmt::Display for OutputFormat {
-    /// Formats the OutputFormat enum as a user-friendly string for display in the UI.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write the string representation to.
-    ///
-    /// # Returns
-    ///
-    /// A Result indicating whether the formatting was successful.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            OutputFormat::Jpeg => write!(f, "JPEG"),
-            OutputFormat::Png => write!(f, "PNG"),
-            OutputFormat::Gif => write!(f, "GIF"),
-            OutputFormat::WebP => write!(f, "WebP"),
-            OutputFormat::Bmp => write!(f, "BMP"),
-            OutputFormat::Tiff => write!(f, "Tiff"),
-        }
-    }
-}
+use iced_aw::{DropDown, drop_down, helpers::badge, number_input, style};
 
 /// Builds the main view of the application, displaying the current state and providing controls for user interaction.
 ///
@@ -39,46 +17,39 @@ impl std::fmt::Display for OutputFormat {
 ///
 /// An Element representing the main view of the application, which can be rendered by the Iced framework.
 pub fn view(state: &State) -> Element<'_, Message> {
-    let mut dark_icons = false;
-    if let Some(theme) = &state.settings.theme {
-        dark_icons = theme == "Light"
-            || theme == "Solarized Light"
-            || theme == "Gruvbox Light"
-            || theme == "Catppuccin Latte"
-            || theme == "Tokyo Night Light"
-            || theme == "Kanagawa Lotus";
-    }
+    let theme_name = state.settings.theme.to_string();
+    let dark_icons = theme_name == "Light"
+        || theme_name == "Solarized Light"
+        || theme_name == "Gruvbox Light"
+        || theme_name == "Catppuccin Latte"
+        || theme_name == "Tokyo Night Light"
+        || theme_name == "Kanagawa Lotus";
 
-    let current_language = state
-        .languages
-        .iter()
-        .find(|l| l.language_key == state.settings.language_key);
-    let current_language = current_language.unwrap_or(&state.languages[0]);
+    let current_language = state.current_language();
 
     let mut text_input_path = text_input("", &state.input_path.join(", "));
     let mut text_output_path = text_input("", &state.output_path);
 
-    let mut browse_input_button = button(current_language.browse.as_str());
+    let mut dropdown_trigger =
+        button(row![text(current_language.browse.as_str()), text(" \u{25BE}"),].spacing(2));
     let mut browse_output_button = button(current_language.browse.as_str());
 
     let mut quality_slider = if state.format == OutputFormat::Jpeg {
-        slider(1..=100, state.quality, Message::IgnoreQuality)
+        slider(1..=100, state.quality, |_| Message::IgnoreQuality)
     } else {
-        slider(1..=100, 100, Message::IgnoreQuality)
+        slider(1..=100, 100, |_| Message::IgnoreQuality)
     };
-    let mut scale_slider = slider(1..=100, state.scale, Message::IgnoreScale);
+    let mut scale_slider = slider(1..=100, state.scale, |_| Message::IgnoreScale);
 
-    let mut format_pick_list = pick_list(
-        &OutputFormat::ALL[..],
-        Some(state.format),
-        Message::IgnoreFormatSelected,
-    );
+    let mut format_pick_list = pick_list(&OutputFormat::ALL[..], Some(state.format), |_| {
+        Message::IgnoreFormatSelected
+    });
 
     let mut compress_button = button(current_language.compress.as_str());
 
     if !state.is_compressing {
-        text_input_path = text_input_path.on_input(|_| Message::SelectInput);
-        browse_input_button = browse_input_button.on_press(Message::SelectInput);
+        text_input_path = text_input_path.on_input(|_| Message::ToggleInputDropdown);
+        dropdown_trigger = dropdown_trigger.on_press(Message::ToggleInputDropdown);
 
         text_output_path = text_output_path.on_input(|_| Message::SelectOutput);
         browse_output_button = browse_output_button.on_press(Message::SelectOutput);
@@ -145,19 +116,61 @@ pub fn view(state: &State) -> Element<'_, Message> {
         })
     ]];
 
+    let dropdown_overlay = container(
+        column![
+            button(text(current_language.select_files.as_str()))
+                .on_press(Message::SelectInput)
+                .width(Length::Fill),
+            button(text(current_language.select_folder.as_str()))
+                .on_press(Message::SelectInputFolder)
+                .width(Length::Fill),
+        ]
+        .spacing(4)
+        .padding(4),
+    )
+    .width(Length::Fixed(160.0));
+
+    let browse_input_dropdown = DropDown::new(
+        dropdown_trigger,
+        dropdown_overlay,
+        state.show_input_dropdown,
+    )
+    .on_dismiss(Message::DismissInputDropdown)
+    .alignment(drop_down::Alignment::Bottom);
+
     let width = state.width.unwrap_or(0) as i32;
     let height = state.height.unwrap_or(0) as i32;
 
+    let width_input = if state.is_compressing {
+        number_input(&width, 0..=i32::MAX, |_| Message::IgnoreWidth)
+            .width(Length::Fill)
+            .step(1)
+    } else {
+        number_input(&width, 0..=i32::MAX, Message::WidthChanged)
+            .width(Length::Fill)
+            .step(1)
+    };
+
+    let height_input = if state.is_compressing {
+        number_input(&height, 0..=i32::MAX, |_| Message::IgnoreHeight)
+            .width(Length::Fill)
+            .step(1)
+    } else {
+        number_input(&height, 0..=i32::MAX, Message::HeightChanged)
+            .width(Length::Fill)
+            .step(1)
+    };
+
     let content = iced::widget::column![
         row![
-            container(text(current_language.input.as_str())).width(Length::FillPortion(1)),
-            container(text_input_path).width(Length::FillPortion(3)),
-            container(browse_input_button).width(Length::Shrink),
+            text(current_language.input.as_str()).width(Length::FillPortion(1)),
+            text_input_path.width(Length::FillPortion(3)),
+            container(browse_input_dropdown).width(Length::Shrink),
         ],
         row![
-            container(text(current_language.output.as_str())).width(Length::FillPortion(1)),
-            container(text_output_path).width(Length::FillPortion(3)),
-            container(browse_output_button).width(Length::Shrink),
+            text(current_language.output.as_str()).width(Length::FillPortion(1)),
+            text_output_path.width(Length::FillPortion(3)),
+            browse_output_button.width(Length::Shrink),
         ],
         row![
             text(current_language.format.as_str()),
@@ -165,32 +178,20 @@ pub fn view(state: &State) -> Element<'_, Message> {
             format_pick_list,
         ],
         row![
-            container(text(current_language.quality.as_str())).width(Length::FillPortion(1)),
-            container(quality_slider).width(Length::FillPortion(3)),
-            container(text(state.quality.to_string() + "%")).width(Length::Shrink),
+            text(current_language.quality.as_str()).width(Length::FillPortion(1)),
+            quality_slider.width(Length::FillPortion(3)),
+            text(state.quality.to_string() + "%").width(Length::Shrink),
         ]
         .spacing(10),
         row![
-            container(text(current_language.scale.as_str())).width(Length::FillPortion(1)),
-            container(scale_slider).width(Length::FillPortion(3)),
-            container(text(state.scale.to_string() + "%")).width(Length::Shrink),
+            text(current_language.scale.as_str()).width(Length::FillPortion(1)),
+            scale_slider.width(Length::FillPortion(3)),
+            text(state.scale.to_string() + "%").width(Length::Shrink),
         ]
         .spacing(10),
         row![
-            LabeledFrame::new(
-                current_language.width.as_str(),
-                number_input(&width, 0..=i32::MAX, Message::WidthChanged)
-                    .width(Length::Fill)
-                    .step(1)
-            )
-            .width(Length::Fill),
-            LabeledFrame::new(
-                current_language.height.as_str(),
-                number_input(&height, 0..=i32::MAX, Message::HeightChanged)
-                    .width(Length::Fill)
-                    .step(1),
-            )
-            .width(Length::Fill)
+            LabeledFrame::new(current_language.width.as_str(), width_input).width(Length::Fill),
+            LabeledFrame::new(current_language.height.as_str(), height_input).width(Length::Fill)
         ],
         row![space::vertical()],
         row![

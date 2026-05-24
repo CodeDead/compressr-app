@@ -33,6 +33,8 @@
   "resetAllSettings": "Alle instellingen resetten",
   "newVersionAvailable": "Versie {version} is nu beschikbaar! Wenst u deze versie te downloaden?",
   "information": "Informatie",
-  "download": "Download", 
-  "unknownError": "Er is/was een onbekende fout opgetreden. Probeer het opnieuw."
+  "download": "Download",
+  "unknownError": "Er is/was een onbekende fout opgetreden. Probeer het opnieuw.",
+  "selectFiles": "Bestanden selecteren",
+  "selectFolder": "Map selecteren"
 }

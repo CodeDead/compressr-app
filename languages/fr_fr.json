@@ -34,5 +34,7 @@
   "newVersionAvailable": "La version {version} est maintenant disponible ! Voulez-vous télécharger cette version ?",
   "information": "Information",
   "download": "Télécharger",
-  "unknownError": "Une erreur inconnue s'est produite. Veuillez réessayer."
+  "unknownError": "Une erreur inconnue s'est produite. Veuillez réessayer.",
+  "selectFiles": "Sélectionner des fichiers",
+  "selectFolder": "Sélectionner un dossier"
 }

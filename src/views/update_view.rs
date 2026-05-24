@@ -14,11 +14,7 @@ use iced::{Element, Length, color};
 ///
 /// An Element representing the update view of the application, which can be rendered by the Iced framework.
 pub fn view(state: &State) -> Element<'_, Message> {
-    let current_language = state
-        .languages
-        .iter()
-        .find(|l| l.language_key == state.settings.language_key);
-    let current_language = current_language.unwrap_or(&state.languages[0]);
+    let current_language = state.current_language();
 
     let header = get_header(
         current_language.compressr_update.clone(),
