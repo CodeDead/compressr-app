@@ -18,13 +18,23 @@ pub struct Window {
     title: String,
     current_scale: f32,
     theme: Theme,
-    window_id: u8,
+    kind: WindowKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowKind {
+    Main,
+    Settings,
+    Update,
+    Error,
+    About,
+    NoUpdate,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     MainViewOpened(window::Id),
-    ViewOpened(String, u8, window::Id),
+    ViewOpened(String, WindowKind, window::Id),
     WindowClosed(window::Id),
     SelectInput,
     SelectOutput,
@@ -33,8 +43,8 @@ pub enum Message {
     CompressionCompleted(Result<(), String>),
     FormatSelected(OutputFormat),
     QualityChanged(u8),
-    WidthChanged(String),
-    HeightChanged(String),
+    WidthChanged(i32),
+    HeightChanged(i32),
     CompressionScaleChanged(u32),
     IgnoreQuality(u8),
     IgnoreScale(u32),
@@ -77,8 +87,9 @@ impl App {
     /// An `Icon` instance created from the embedded icon bytes, ready to be used in window settings. This function will panic if the icon cannot be loaded successfully.
     fn load_icon() -> window::icon::Icon {
         let icon_bytes = include_bytes!("../../resources/compressr.png");
-        let image = image::load_from_memory(icon_bytes).unwrap();
-        window::icon::from_rgba(image.as_bytes().to_vec(), 256, 256)
+        let image = image::load_from_memory(icon_bytes).unwrap().into_rgba8();
+        let (width, height) = (image.width(), image.height());
+        window::icon::from_rgba(image.into_raw(), width, height)
             .expect("Failed to load window icon")
     }
 
@@ -128,19 +139,19 @@ impl App {
         }
     }
 
-    /// Finds the window ID associated with a given internal window identifier.
+    /// Finds the window ID associated with a given window kind.
     ///
     /// # Arguments
     ///
-    /// * `target_id` - The internal window identifier to search for.
+    /// * `target_kind` - The window kind to search for.
     ///
     /// # Returns
     ///
-    /// An `Option<window::Id>` containing the window ID if found, or `None` if no window with the specified internal identifier exists in the `windows` map.
-    fn find_window_by_id(&self, target_id: u8) -> Option<window::Id> {
+    /// An `Option<window::Id>` containing the window ID if found, or `None` if no window with the specified kind exists in the `windows` map.
+    fn find_window_by_kind(&self, target_kind: WindowKind) -> Option<window::Id> {
         self.windows
             .iter()
-            .find(|(_, window)| window.window_id == target_id)
+            .find(|(_, window)| window.kind == target_kind)
             .map(|(id, _)| *id)
     }
 
@@ -160,7 +171,7 @@ impl App {
         info!("Initializing new App");
 
         let window_icon = Self::load_icon();
-        let settings = Self::create_window_settings((650.0, 385.0), window_icon);
+        let settings = Self::create_window_settings((650.0, 420.0), window_icon);
 
         let state = State::default();
         let update_server = state.settings.update_server.clone();
@@ -214,7 +225,7 @@ impl App {
             Message::MainViewOpened(id) => {
                 let window = Window::new(
                     "Compressr".to_string(),
-                    0,
+                    WindowKind::Main,
                     ThemeService::string_to_theme(
                         &self
                             .state
@@ -249,10 +260,10 @@ impl App {
 
                 Task::none()
             }
-            Message::ViewOpened(title, inner_id, id) => {
+            Message::ViewOpened(title, kind, id) => {
                 let window = Window::new(
                     title,
-                    inner_id,
+                    kind,
                     ThemeService::string_to_theme(
                         &self
                             .state
@@ -349,28 +360,19 @@ impl App {
                 Task::none()
             }
             Message::WidthChanged(w) => {
-                if w.is_empty() {
+                if w <= 0 {
                     self.state.width = None;
-                    return Task::none();
                 } else {
-                    let old_value = self.state.width;
-                    self.state.width = match w.parse::<u32>() {
-                        Ok(val) => Some(val),
-                        Err(_) => old_value,
-                    };
+                    self.state.width = Some(w as u32);
                 }
 
                 Task::none()
             }
             Message::HeightChanged(h) => {
-                if h.is_empty() {
+                if h <= 0 {
                     self.state.height = None;
                 } else {
-                    let old_value = self.state.height;
-                    self.state.height = match h.parse::<u32>() {
-                        Ok(val) => Some(val),
-                        Err(_) => old_value,
-                    };
+                    self.state.height = Some(h as u32);
                 }
 
                 Task::none()
@@ -400,7 +402,7 @@ impl App {
                     return Task::none();
                 };
 
-                if self.windows.values().any(|w| w.window_id == 3) {
+                if self.windows.values().any(|w| w.kind == WindowKind::Error) {
                     return Task::none();
                 }
 
@@ -413,14 +415,18 @@ impl App {
                         let (_, open) = window::open(settings);
                         open
                     })
-                    .map(move |r| Message::ViewOpened(title.clone(), 3, r))
+                    .map(move |r| Message::ViewOpened(title.clone(), WindowKind::Error, r))
             }
             Message::OpenSettings => {
                 let Some(last_window) = self.windows.keys().last() else {
                     return Task::none();
                 };
 
-                if self.windows.values().any(|w| w.window_id == 1) {
+                if self
+                    .windows
+                    .values()
+                    .any(|w| w.kind == WindowKind::Settings)
+                {
                     return Task::none();
                 }
 
@@ -433,7 +439,7 @@ impl App {
                         let (_, open) = window::open(settings);
                         open
                     })
-                    .map(move |r| Message::ViewOpened(title.clone(), 1, r))
+                    .map(move |r| Message::ViewOpened(title.clone(), WindowKind::Settings, r))
             }
             Message::AutoUpdateToggled(auto_update) => {
                 self.state.settings.auto_update = auto_update;
@@ -462,6 +468,7 @@ impl App {
             }
             Message::ResetSettings => {
                 self.state.settings = crate::components::settings::Settings::default();
+                self.update_service = UpdateService::new(self.state.settings.update_server.clone());
                 self.windows.values_mut().for_each(|window| {
                     window.theme = ThemeService::string_to_theme(
                         &self
@@ -509,7 +516,7 @@ impl App {
                         return Task::none();
                     };
 
-                    if self.windows.values().any(|w| w.window_id == 2) {
+                    if self.windows.values().any(|w| w.kind == WindowKind::Update) {
                         return Task::none();
                     }
 
@@ -523,7 +530,7 @@ impl App {
                             let (_, open) = window::open(settings);
                             open
                         })
-                        .map(move |r| Message::ViewOpened(title.clone(), 2, r))
+                        .map(move |r| Message::ViewOpened(title.clone(), WindowKind::Update, r))
                 }
                 Ok(None) => {
                     info!("No updates available");
@@ -541,7 +548,11 @@ impl App {
                         return Task::none();
                     };
 
-                    if self.windows.values().any(|w| w.window_id == 5) {
+                    if self
+                        .windows
+                        .values()
+                        .any(|w| w.kind == WindowKind::NoUpdate)
+                    {
                         return Task::none();
                     }
 
@@ -555,7 +566,7 @@ impl App {
                             let (_, open) = window::open(settings);
                             open
                         })
-                        .map(move |r| Message::ViewOpened(title.clone(), 5, r))
+                        .map(move |r| Message::ViewOpened(title.clone(), WindowKind::NoUpdate, r))
                 }
                 Err(err) => {
                     error!("Failed to check for updates: {err}");
@@ -602,7 +613,7 @@ impl App {
                 }
             }
             Message::CloseUpdateView => {
-                if let Some(id) = self.find_window_by_id(2) {
+                if let Some(id) = self.find_window_by_kind(WindowKind::Update) {
                     self.windows.remove(&id);
                     return window::close(id);
                 }
@@ -610,8 +621,7 @@ impl App {
                 Task::none()
             }
             Message::CloseErrorView => {
-                // Get the window ID of the error view (window_id 3) and close it
-                if let Some(id) = self.find_window_by_id(3) {
+                if let Some(id) = self.find_window_by_kind(WindowKind::Error) {
                     self.windows.remove(&id);
                     return window::close(id);
                 }
@@ -619,7 +629,7 @@ impl App {
                 Task::none()
             }
             Message::CloseNoUpdateView => {
-                if let Some(id) = self.find_window_by_id(5) {
+                if let Some(id) = self.find_window_by_kind(WindowKind::NoUpdate) {
                     self.windows.remove(&id);
                     return window::close(id);
                 }
@@ -666,7 +676,7 @@ impl App {
                     return Task::none();
                 };
 
-                if self.windows.values().any(|w| w.window_id == 4) {
+                if self.windows.values().any(|w| w.kind == WindowKind::About) {
                     return Task::none();
                 }
 
@@ -679,7 +689,7 @@ impl App {
                         let (_, open) = window::open(about);
                         open
                     })
-                    .map(move |r| Message::ViewOpened(title.clone(), 4, r))
+                    .map(move |r| Message::ViewOpened(title.clone(), WindowKind::About, r))
             }
             Message::LanguageChanged(new_language) => {
                 // Find language with the language name
@@ -709,14 +719,13 @@ impl App {
     /// An `Element` representing the UI for the specified window. If the window ID is not found in the `windows` map, an empty space element is returned.
     pub fn view(&self, window_id: window::Id) -> Element<'_, Message> {
         if let Some(window) = self.windows.get(&window_id) {
-            match window.window_id {
-                0 => main_view::view(&self.state),
-                1 => settings_view::view(&self.state),
-                2 => update_view::view(&self.state),
-                3 => error_view::view(&self.state),
-                4 => about_view::view(&self.state),
-                5 => no_update_view::view(&self.state),
-                _ => space().into(),
+            match window.kind {
+                WindowKind::Main => main_view::view(&self.state),
+                WindowKind::Settings => settings_view::view(&self.state),
+                WindowKind::Update => update_view::view(&self.state),
+                WindowKind::Error => error_view::view(&self.state),
+                WindowKind::About => about_view::view(&self.state),
+                WindowKind::NoUpdate => no_update_view::view(&self.state),
             }
         } else {
             space().into()
@@ -763,23 +772,23 @@ impl App {
 }
 
 impl Window {
-    /// Initializes a new `Window` instance with the specified title, window ID, and theme.
+    /// Initializes a new `Window` instance with the specified title, window kind, and theme.
     ///
     /// # Arguments
     ///
     /// * `title` - A `String` representing the title of the window.
-    /// * `window_id` - A `u8` representing the unique identifier for the window.
+    /// * `kind` - The kind of window being created.
     /// * `theme` - A `Theme` representing the visual theme of the window
     ///
     /// # Returns
     ///
-    /// A new instance of the `Window` struct initialized with the provided title, window ID, and theme, and a default scale factor of `1.0`.
-    fn new(title: String, window_id: u8, theme: Theme) -> Self {
+    /// A new instance of the `Window` struct initialized with the provided title, window kind, and theme, and a default scale factor of `1.0`.
+    fn new(title: String, kind: WindowKind, theme: Theme) -> Self {
         Self {
             title,
             current_scale: 1.0,
             theme,
-            window_id,
+            kind,
         }
     }
 }

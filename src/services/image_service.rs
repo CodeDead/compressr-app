@@ -130,6 +130,14 @@ impl ImageService {
             if let Some(w) = width
                 && let Some(h) = height
             {
+                if w < 1 {
+                    return Err("Width cannot be smaller than 1".to_string());
+                }
+
+                if h < 1 {
+                    return Err("Height cannot be smaller than 1".to_string());
+                }
+
                 img = img.resize(w, h, image::imageops::FilterType::Lanczos3);
             }
 
@@ -151,10 +159,13 @@ impl ImageService {
                     OutputFormat::Tiff => "tiff",
                 };
 
-                format!(
-                    "{}/{}.{}",
-                    output_path, file_name_without_path_and_extension, extension
-                )
+                Path::new(output_path)
+                    .join(format!(
+                        "{}.{}",
+                        file_name_without_path_and_extension, extension
+                    ))
+                    .to_string_lossy()
+                    .into_owned()
             } else {
                 output_path.to_string()
             };

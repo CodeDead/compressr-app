@@ -1,4 +1,5 @@
 use log::error;
+use reqwest::Url;
 use std::process::Command;
 
 pub(crate) mod image_service;
@@ -15,6 +16,14 @@ pub(crate) mod update_service;
 ///
 /// Ok(()) if the URL was successfully opened, or an error message if it failed.
 pub fn open_website(url: &str) -> Result<(), String> {
+    let parsed_url = Url::parse(url).map_err(|err| format!("Invalid URL: {err}"))?;
+    if parsed_url.scheme() != "https" {
+        return Err(format!(
+            "Refusing to open non-HTTPS URL with scheme '{}'",
+            parsed_url.scheme()
+        ));
+    }
+
     let result = match crate::get_platform().as_str() {
         "windows" => Command::new("cmd").args(["/C", "start", "", url]).spawn(),
         "macos" => Command::new("open").arg(url).spawn(),
