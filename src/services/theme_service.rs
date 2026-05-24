@@ -1,7 +1,7 @@
 use iced::Theme;
 
 /// Converts a theme name string to the corresponding [`Theme`] variant.
-/// Falls back to [`Theme::Dark`] for unrecognised names.
+/// Falls back to [`Theme::Oxocarbon`] for unrecognised names.
 pub fn string_to_theme(theme_str: &str) -> Theme {
     match theme_str {
         "Light" => Theme::Light,
