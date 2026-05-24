@@ -85,6 +85,9 @@ pub struct CompressionParams {
     pub format: OutputFormat,
     /// Whether to copy EXIF metadata from the source file.
     pub preserve_exif: bool,
+    /// When `Some`, overrides the path that `resolve_output_path` would normally derive.
+    /// Used by the caller to pass a pre-deduplicated output path.
+    pub output_path_override: Option<String>,
 }
 
 impl ImageService {
@@ -128,7 +131,10 @@ impl ImageService {
             encoded
         };
 
-        let output_path = self.resolve_output_path(&file, params);
+        let output_path = params
+            .output_path_override
+            .clone()
+            .unwrap_or_else(|| self.resolve_output_path(&file, params));
 
         fs::write(&output_path, final_bytes)
             .map_err(|e| format!("Failed to write output file: {e}"))?;
@@ -189,7 +195,7 @@ impl ImageService {
     }
 
     /// Resolves the final output file path from the source file path and params.
-    fn resolve_output_path(&self, file: &str, params: &CompressionParams) -> String {
+    pub fn resolve_output_path(&self, file: &str, params: &CompressionParams) -> String {
         if params.is_output_a_directory {
             let file_name_with_extension = Path::new(file)
                 .file_name()

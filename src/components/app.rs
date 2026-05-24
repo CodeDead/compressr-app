@@ -267,6 +267,7 @@ impl App {
                     quality: self.state.quality,
                     format: self.state.format,
                     preserve_exif: self.state.settings.preserve_exif,
+                    output_path_override: None,
                 };
                 let delete_original = self.state.settings.delete_files_after_compression;
 
@@ -598,13 +599,64 @@ async fn compress_images(
         return Err("Output path cannot be empty".to_string());
     }
 
+    // Pre-compute output paths and disambiguate any collisions caused by
+    // multiple input files sharing the same basename (e.g. from different
+    // directories).  Duplicate paths get a numeric suffix (_2, _3, …) so
+    // concurrent tasks never write to the same file.
+    let resolved_paths: Vec<String> = {
+        use std::collections::HashMap;
+        // Count how many times each candidate path has been seen so far.
+        let mut seen: HashMap<String, u32> = HashMap::new();
+        input
+            .iter()
+            .map(|file| {
+                let candidate = image_service.resolve_output_path(file, &params);
+                let count = seen.entry(candidate.clone()).or_insert(0);
+                *count += 1;
+                if *count == 1 {
+                    // First occurrence — use the path as-is.
+                    candidate
+                } else {
+                    // Subsequent occurrences — insert a counter before the
+                    // final extension so the stem remains readable.
+                    // e.g. "out/photo.jpg_compressed.jpg"
+                    //   → "out/photo.jpg_compressed_2.jpg"
+                    let path = std::path::Path::new(&candidate);
+                    let ext = path
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or_default();
+                    let stem = path
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("output");
+                    let parent = path
+                        .parent()
+                        .map(|p| p.to_string_lossy().into_owned())
+                        .unwrap_or_default();
+                    let disambiguated = if parent.is_empty() {
+                        format!("{}_{}.{}", stem, count, ext)
+                    } else {
+                        format!("{}/{}_{}.{}", parent, stem, count, ext)
+                    };
+                    // Update the seen-count for the new name too so that a
+                    // third collision doesn't accidentally reuse _2.
+                    seen.entry(disambiguated.clone()).or_insert(0);
+                    disambiguated
+                }
+            })
+            .collect()
+    };
+
     // Compress every file concurrently on the blocking thread pool.
     let handles: Vec<tokio::task::JoinHandle<Result<(), String>>> = input
         .iter()
-        .map(|file| {
+        .zip(resolved_paths.iter())
+        .map(|(file, out_path)| {
             let file = file.clone();
             let svc = image_service.clone();
-            let p = params.clone();
+            let mut p = params.clone();
+            p.output_path_override = Some(out_path.clone());
             tokio::task::spawn_blocking(move || svc.compress_single(file, &p))
         })
         .collect();
