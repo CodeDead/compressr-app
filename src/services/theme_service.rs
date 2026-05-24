@@ -26,6 +26,6 @@ pub fn string_to_theme(theme_str: &str) -> Theme {
         "Nightfly" => Theme::Nightfly,
         "Oxocarbon" => Theme::Oxocarbon,
         "Ferra" => Theme::Ferra,
-        _ => Theme::Dark,
+        _ => Theme::Oxocarbon,
     }
 }
