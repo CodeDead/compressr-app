@@ -25,6 +25,7 @@
   "automaticallyCheckForUpdates": "Automatisch controleren op updates",
   "deleteOriginalFilesAfterCompression": "Originele bestanden verwijderen na compressie",
   "preserveExifData": "EXIF-gegevens bewaren",
+  "showCompressionResults": "Compressieresultaten tonen",
   "theme": "Thema:",
   "selectTheme": "Selecteer thema",
   "language": "Taal:",
@@ -36,5 +37,11 @@
   "download": "Download",
   "unknownError": "Er is/was een onbekende fout opgetreden. Probeer het opnieuw.",
   "selectFiles": "Bestanden selecteren",
-  "selectFolder": "Map selecteren"
+  "selectFolder": "Map selecteren",
+  "compressrResults": "Compressr - Resultaten",
+  "file": "Bestand",
+  "original": "Origineel",
+  "compressedSize": "Gecomprimeerd",
+  "saved": "Bespaard",
+  "filesTotal": "{count} bestand(en) totaal"
 }

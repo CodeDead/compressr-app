@@ -1,6 +1,6 @@
 use crate::components::settings::Settings;
 use crate::models::language::Language;
-use crate::services::image_service::OutputFormat;
+use crate::services::image_service::{CompressionResult, OutputFormat};
 use iced::widget::image;
 
 pub struct MainViewIcons {
@@ -20,6 +20,7 @@ pub struct State {
     pub format: OutputFormat,
     pub is_compressing: bool,
     pub compression_succeeded: bool,
+    pub compression_results: Vec<CompressionResult>,
     pub last_error_message: Option<String>,
     pub settings: Settings,
     pub update_version: Option<String>,
@@ -38,6 +39,15 @@ impl Default for State {
     /// A State instance with default values.
     fn default() -> Self {
         /// Loads and deserializes a language JSON file from embedded bytes.
+        ///
+        /// # Arguments
+        ///
+        /// * `bytes` - The byte slice containing the JSON data for the language.
+        /// * `name` - The name of the language (used for error messages).
+        ///
+        /// # Returns
+        ///
+        /// A `Language` instance deserialized from the provided JSON bytes.
         fn load_lang(bytes: &[u8], name: &str) -> Language {
             let json = String::from_utf8_lossy(bytes);
             serde_json::from_str::<Language>(&json)
@@ -78,6 +88,7 @@ impl Default for State {
             format: OutputFormat::Jpeg,
             is_compressing: false,
             compression_succeeded: false,
+            compression_results: Vec::new(),
             last_error_message: None,
             settings: Settings::load_from_file(),
             update_version: None,

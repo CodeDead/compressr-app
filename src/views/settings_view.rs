@@ -42,6 +42,11 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 .on_toggle(Message::PreserveExifToggled)
         ],
         row![
+            checkbox(state.settings.show_compression_results)
+                .label(current_language.show_compression_results.as_str())
+                .on_toggle(Message::ShowCompressionResultsToggled)
+        ],
+        row![
             text(current_language.theme.as_str()).width(Length::FillPortion(1)),
             pick_list(
                 Theme::ALL,

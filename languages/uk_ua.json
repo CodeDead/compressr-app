@@ -25,6 +25,7 @@
   "automaticallyCheckForUpdates": "Автоматично перевіряти оновлення",
   "deleteOriginalFilesAfterCompression": "Видалити оригінальні файли після стиснення",
   "preserveExifData": "Зберігати дані EXIF",
+  "showCompressionResults": "Показувати результати стиснення",
   "theme": "Тема:",
   "selectTheme": "Оберіть тему",
   "language": "Мова:",
@@ -36,5 +37,11 @@
   "download": "Завантажити",
   "unknownError": "Сталася невідома помилка. Будь ласка, спробуйте ще раз.",
   "selectFiles": "Вибрати файли",
-  "selectFolder": "Вибрати папку"
+  "selectFolder": "Вибрати папку",
+  "compressrResults": "Compressr - Результати",
+  "file": "Файл",
+  "original": "Оригінал",
+  "compressedSize": "Стиснутий",
+  "saved": "Збережено",
+  "filesTotal": "Усього {count} файл(ів)"
 }

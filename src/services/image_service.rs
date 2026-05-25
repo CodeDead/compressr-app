@@ -66,6 +66,32 @@ impl std::fmt::Display for OutputFormat {
     }
 }
 
+/// Result of a single image compression operation.
+#[derive(Debug, Clone)]
+pub struct CompressionResult {
+    /// The original file name (without directory).
+    pub file_name: String,
+    /// Original file size in bytes.
+    pub original_size: u64,
+    /// Compressed file size in bytes.
+    pub compressed_size: u64,
+}
+
+impl CompressionResult {
+    /// Returns the percentage of size changed.
+    ///
+    /// # Returns
+    ///
+    /// A floating-point number representing the percentage of size saved compared to the original size.
+    pub fn percent_saved(&self) -> f64 {
+        if self.original_size == 0 {
+            return 0.0;
+        }
+        let diff = self.original_size as f64 - self.compressed_size as f64;
+        (diff / self.original_size as f64) * 100.0
+    }
+}
+
 /// Parameters for a single image compression operation.
 #[derive(Debug, Clone)]
 pub struct CompressionParams {
@@ -105,7 +131,11 @@ impl ImageService {
     /// # Errors
     ///
     /// Returns an error string if the image cannot be loaded, encoded, or saved.
-    pub fn compress_single(&self, file: String, params: &CompressionParams) -> Result<(), String> {
+    pub fn compress_single(
+        &self,
+        file: String,
+        params: &CompressionParams,
+    ) -> Result<CompressionResult, String> {
         // Validate explicit dimensions before doing any I/O.
         if let Some(w) = params.width
             && w < 1
@@ -117,6 +147,8 @@ impl ImageService {
         {
             return Err("Height cannot be smaller than 1".to_string());
         }
+
+        let original_size = fs::metadata(&file).map(|m| m.len()).unwrap_or(0);
 
         let source_exif = self.read_exif(&file, params.preserve_exif);
         let img = image::open(&file).map_err(|e| format!("Failed to load image: {e}"))?;
@@ -133,6 +165,8 @@ impl ImageService {
             encoded
         };
 
+        let compressed_size = final_bytes.len() as u64;
+
         let output_path = params
             .output_path_override
             .clone()
@@ -141,12 +175,29 @@ impl ImageService {
         fs::write(&output_path, final_bytes)
             .map_err(|e| format!("Failed to write output file: {e}"))?;
 
-        Ok(())
+        let file_name = Path::new(&file)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(&file)
+            .to_string();
+
+        Ok(CompressionResult {
+            file_name,
+            original_size,
+            compressed_size,
+        })
     }
 
-    // ── Private helpers ──────────────────────────────────────────────────────
-
     /// Reads EXIF bytes from the source file if `preserve` is `true`.
+    ///
+    /// # Arguments
+    ///
+    /// - `file`: The path to the source image file.
+    /// - `preserve`: Whether to attempt reading EXIF data.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing the EXIF bytes if successfully read and preserved, or `None` otherwise.
     fn read_exif(&self, file: &str, preserve: bool) -> Option<img_parts::Bytes> {
         if !preserve {
             return None;
@@ -205,6 +256,15 @@ impl ImageService {
     }
 
     /// Resolves the final output file path from the source file path and params.
+    ///
+    /// # Arguments
+    ///
+    /// - `file`: The original source file path.
+    /// - `params`: The compression parameters containing output path info.
+    ///
+    /// # Returns
+    ///
+    /// A string representing the resolved output file path.
     pub fn resolve_output_path(&self, file: &str, params: &CompressionParams) -> String {
         if params.is_output_a_directory {
             let file_stem = Path::new(file)
@@ -224,6 +284,15 @@ impl ImageService {
     }
 
     /// Encodes `img` into a heap-allocated byte buffer in the requested format.
+    ///
+    /// # Arguments
+    ///
+    /// - `img`: The image to be encoded.
+    /// - `params`: The compression parameters containing format and quality info.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the encoded image bytes on success, or an error string on failure.
     fn encode(&self, img: &DynamicImage, params: &CompressionParams) -> Result<Vec<u8>, String> {
         let mut cursor = Cursor::new(Vec::new());
 
@@ -286,6 +355,16 @@ impl ImageService {
     ///
     /// GIF, BMP, and TIFF do not support EXIF via `img-parts`; for those the
     /// original `bytes` are returned unchanged without an extra copy.
+    ///
+    /// # Arguments
+    ///
+    /// - `bytes`: The encoded image bytes to inject EXIF into.
+    /// - `exif`: The EXIF bytes to inject.
+    /// - `format`: The output format of the image, used to determine how to inject EXIF.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the new image bytes with EXIF injected on success, or an error string on failure.
     fn inject_exif(
         &self,
         bytes: Vec<u8>,

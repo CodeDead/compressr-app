@@ -1,8 +1,12 @@
 use crate::components::state::State;
 use crate::services;
-use crate::services::image_service::{CompressionParams, ImageService, OutputFormat};
+use crate::services::image_service::{
+    CompressionParams, CompressionResult, ImageService, OutputFormat,
+};
 use crate::services::update_service::{UpdateInfo, UpdateService};
-use crate::views::{about_view, error_view, main_view, no_update_view, settings_view, update_view};
+use crate::views::{
+    about_view, error_view, main_view, no_update_view, results_view, settings_view, update_view,
+};
 use iced::widget::space;
 use iced::window::Position;
 #[cfg(target_os = "linux")]
@@ -11,8 +15,6 @@ use iced::{Element, Size, Subscription, Task, Theme, clipboard, window};
 use log::{error, info};
 use rfd::FileDialog;
 use std::collections::BTreeMap;
-
-// ── Window ────────────────────────────────────────────────────────────────────
 
 #[derive(Debug)]
 pub struct Window {
@@ -30,52 +32,45 @@ pub enum WindowKind {
     Error,
     About,
     NoUpdate,
+    Results,
 }
-
-// ── Message ───────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    // Lifecycle
     MainViewOpened(window::Id),
     ViewOpened(String, WindowKind, window::Id),
     WindowClosed(window::Id),
-    // Input selection
     SelectInput,
     SelectOutput,
     SelectInputFolder,
     ToggleInputDropdown,
     DismissInputDropdown,
-    // Compression
     Compress,
-    CompressionCompleted(Result<(), String>),
-    // Compression parameters
+    CompressionCompleted(Result<Vec<CompressionResult>, String>),
+    CloseResultsView,
     FormatSelected(OutputFormat),
     QualityChanged(u8),
     WidthChanged(i32),
     HeightChanged(i32),
     CompressionScaleChanged(u32),
-    // Disabled-state no-ops (callbacks required by widget API but values ignored)
     IgnoreQuality,
     IgnoreScale,
     IgnoreFormatSelected,
     IgnoreWidth,
     IgnoreHeight,
-    // Settings
     AutoUpdateToggled(bool),
     DeleteFilesAfterCompressionToggled(bool),
     PreserveExifToggled(bool),
+    ShowCompressionResultsToggled(bool),
     ThemeChanged(Theme),
     ResetSettings,
     LanguageChanged(String),
-    // Windows
     OpenSettings,
     OpenAbout,
     OpenErrorView,
     CloseUpdateView,
     CloseErrorView,
     CloseNoUpdateView,
-    // Updates
     CheckForUpdates(bool),
     UpdateCheckCompleted {
         result: Result<Option<UpdateInfo>, String>,
@@ -83,13 +78,10 @@ pub enum Message {
     },
     OpenUpdateInformation,
     DownloadUpdate,
-    // Misc
     CopyError,
     OpenCodeDeadPage,
     OpenDonationPage,
 }
-
-// ── App ───────────────────────────────────────────────────────────────────────
 
 pub struct App {
     pub windows: BTreeMap<window::Id, Window>,
@@ -99,8 +91,11 @@ pub struct App {
 }
 
 impl App {
-    // ── Initialisation ────────────────────────────────────────────────────────
-
+    /// Initialize a new App with an empty window map and default state, then open the main view.
+    ///
+    /// # Returns
+    ///
+    /// A tuple of the new App instance and a Task that opens the main view when executed by iced.
     pub fn new() -> (Self, Task<Message>) {
         info!("Initializing new App");
 
@@ -122,8 +117,15 @@ impl App {
         )
     }
 
-    // ── iced entry-points ─────────────────────────────────────────────────────
-
+    /// Returns the title of the window with the given ID, or an empty string if no such window exists.
+    ///
+    /// # Arguments
+    ///
+    /// * `window` - The ID of the window whose title is to be retrieved.
+    ///
+    /// # Returns
+    ///
+    /// The title of the window, or an empty string if no such window exists.
     pub fn title(&self, window: window::Id) -> String {
         self.windows
             .get(&window)
@@ -131,10 +133,28 @@ impl App {
             .unwrap_or_default()
     }
 
+    /// Returns the theme of the window with the given ID, or None if no such window exists.
+    ///
+    /// # Arguments
+    ///
+    /// * `window` - The ID of the window whose theme is to be retrieved.
+    ///
+    /// # Returns
+    ///
+    /// The theme of the window, or None if no such window exists.
     pub fn theme(&self, window: window::Id) -> Option<Theme> {
         Some(self.windows.get(&window)?.theme.clone())
     }
 
+    /// Returns the current scale factor of the window with the given ID, or 1.0 if no such window exists.
+    ///
+    /// # Arguments
+    ///
+    /// * `window` - The ID of the window whose scale factor is to be retrieved.
+    ///
+    /// # Returns
+    ///
+    /// The current scale factor of the window, or 1.0 if no such window exists.
     pub fn scale_factor(&self, window: window::Id) -> f32 {
         self.windows
             .get(&window)
@@ -142,10 +162,23 @@ impl App {
             .unwrap_or(1.0)
     }
 
+    /// Subscribes to window close events and maps them to `Message::WindowClosed`.
+    ///
+    /// # Returns
+    ///
+    /// A subscription that listens for window close events and produces `Message::WindowClosed` messages when they occur.
     pub fn subscription(&self) -> Subscription<Message> {
         window::close_events().map(Message::WindowClosed)
     }
 
+    /// Returns the view for the window with the given ID, or an empty space if no such window exists.
+    ///
+    /// # Arguments
+    ///
+    /// * `window_id` - The ID of the window whose view is to be retrieved.
+    /// # Returns
+    ///
+    /// An `Element` representing the view for the specified window, or an empty space if no such window exists.
     pub fn view(&self, window_id: window::Id) -> Element<'_, Message> {
         if let Some(window) = self.windows.get(&window_id) {
             match window.kind {
@@ -155,12 +188,24 @@ impl App {
                 WindowKind::Error => error_view::view(&self.state),
                 WindowKind::About => about_view::view(&self.state),
                 WindowKind::NoUpdate => no_update_view::view(&self.state),
+                WindowKind::Results => results_view::view(&self.state),
             }
         } else {
             space().into()
         }
     }
 
+    /// Handles incoming messages and updates the application state accordingly.
+    /// Returns a `Task<Message>` that represents any asynchronous work that needs to be performed as a result of the message.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The message to be processed, which can represent user actions, lifecycle events, or other interactions within the application.
+    ///
+    /// # Returns
+    ///
+    /// A `Task<Message>` that represents any asynchronous work that needs to be performed as a result of processing the message.
+    /// This can include tasks such as opening new windows, performing file I/O, checking for updates, or any other operations that should not block the main thread.
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             // ── Lifecycle ─────────────────────────────────────────────────────
@@ -300,9 +345,15 @@ impl App {
             Message::CompressionCompleted(result) => {
                 self.state.is_compressing = false;
                 match result {
-                    Ok(()) => {
+                    Ok(results) => {
                         self.state.compression_succeeded = true;
-                        Task::none()
+                        self.state.compression_results = results;
+                        if self.state.settings.show_compression_results {
+                            let title = self.state.current_language().compressr_results.clone();
+                            self.open_window(WindowKind::Results, title, (600.0, 400.0))
+                        } else {
+                            Task::none()
+                        }
                     }
                     Err(err) => {
                         error!("Compression failed: {err}");
@@ -356,6 +407,11 @@ impl App {
                 self.state.settings.save();
                 Task::none()
             }
+            Message::ShowCompressionResultsToggled(v) => {
+                self.state.settings.show_compression_results = v;
+                self.state.settings.save();
+                Task::none()
+            }
             Message::ThemeChanged(theme) => {
                 self.state.settings.theme = theme.clone();
                 self.state.settings.save();
@@ -386,11 +442,9 @@ impl App {
                 self.state.settings.save();
                 Task::none()
             }
-
-            // ── Window management ─────────────────────────────────────────────
             Message::OpenSettings => {
                 let title = self.state.current_language().compressr_settings.clone();
-                self.open_window(WindowKind::Settings, title, (500.0, 325.0))
+                self.open_window(WindowKind::Settings, title, (500.0, 360.0))
             }
             Message::OpenAbout => {
                 let title = self.state.current_language().compressr_about.clone();
@@ -403,8 +457,7 @@ impl App {
             Message::CloseUpdateView => self.close_window(WindowKind::Update),
             Message::CloseErrorView => self.close_window(WindowKind::Error),
             Message::CloseNoUpdateView => self.close_window(WindowKind::NoUpdate),
-
-            // ── Updates ───────────────────────────────────────────────────────
+            Message::CloseResultsView => self.close_window(WindowKind::Results),
             Message::CheckForUpdates(show_no_update_view) => {
                 self.spawn_update_check(show_no_update_view)
             }
@@ -466,8 +519,6 @@ impl App {
                     }
                 }
             }
-
-            // ── Misc ──────────────────────────────────────────────────────────
             Message::CopyError => match self.state.last_error_message.clone() {
                 Some(msg) => clipboard::write(msg),
                 None => Task::none(),
@@ -477,9 +528,12 @@ impl App {
         }
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
-
     /// Loads the application icon from embedded PNG bytes.
+    ///
+    /// # Returns
+    ///
+    /// An `Icon` object representing the application icon, ready to be used in window settings.
+    /// If the icon fails to load, the function will panic with an error message.
     fn load_icon() -> window::icon::Icon {
         let bytes = include_bytes!("../../resources/compressr.png");
         let img = image::load_from_memory(bytes).unwrap().into_rgba8();
@@ -488,6 +542,11 @@ impl App {
     }
 
     /// Returns `"x64"`, `"aarch64"`, or `"unknown"` based on compile-time target.
+    ///
+    /// # Returns
+    ///
+    /// A string slice representing the architecture of the target platform, used for update checks and reporting.
+    /// This function uses compile-time configuration to determine the architecture and returns a corresponding string.
     fn arch() -> &'static str {
         if cfg!(target_arch = "x86_64") {
             "x64"
@@ -499,6 +558,17 @@ impl App {
     }
 
     /// Builds [`window::Settings`] for the given pixel size and icon.
+    ///
+    /// # Arguments
+    ///
+    /// * `size` - A tuple containing the width and height of the window in pixels.
+    /// * `icon` - An `Icon` object to be used as the window's icon.
+    ///
+    /// # Returns
+    ///
+    /// A `window::Settings` object, configured with the specified size, icon, and other properties such as transparency, decorations, and blur.
+    /// The settings also include platform-specific configuration for Linux to set the application ID.
+    /// This function centralizes the window configuration to ensure consistency across different windows in the application.
     fn make_window_settings(size: (f32, f32), icon: window::icon::Icon) -> window::Settings {
         window::Settings {
             size: Size::new(size.0, size.1),
@@ -518,11 +588,23 @@ impl App {
     }
 
     /// Returns the active [`Theme`] from settings.
+    ///
+    /// # Returns
+    ///
+    /// The active theme from the application settings, cloned to ensure ownership.
     fn current_theme(&self) -> Theme {
         self.state.settings.theme.clone()
     }
 
-    /// Returns the window ID for `kind`, if one is currently open.
+    /// Returns the window ID for `kind` if one is currently open.
+    ///
+    /// # Arguments
+    ///
+    /// * `kind` - The `WindowKind` to search for among the currently open windows.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing the `window::Id` of the first window found with the specified `WindowKind`, or `None` if no such window is currently open.
     fn find_window_by_kind(&self, kind: WindowKind) -> Option<window::Id> {
         self.windows
             .iter()
@@ -532,6 +614,17 @@ impl App {
 
     /// Opens a window of `kind` unless one is already open.
     /// Positions the new window relative to the last existing window.
+    ///
+    /// # Arguments
+    ///
+    /// * `kind` - The `WindowKind` representing the type of window to open (e.g., Settings, About, Error).
+    /// * `title` - The title to display in the window's title bar.
+    /// * `size` - A tuple specifying the width and height of the window in pixels.
+    ///
+    /// # Returns
+    ///
+    /// A `Task<Message>` that, when executed, will open a new window of the specified kind with the given title and size, positioned relative to the last existing window.
+    /// If a window of the specified kind is already open, the function returns a no-op task that does nothing when executed
     fn open_window(&self, kind: WindowKind, title: String, size: (f32, f32)) -> Task<Message> {
         let Some(last) = self.windows.keys().last() else {
             return Task::none();
@@ -548,6 +641,15 @@ impl App {
     }
 
     /// Removes `kind` from the window map and sends `window::close`.
+    ///
+    /// # Arguments
+    ///
+    /// * `kind` - The `WindowKind` representing the type of window to close (e.g., Settings, About, Error).
+    ///
+    /// # Returns
+    ///
+    /// A `Task<Message>` that, when executed, will close the window of the specified kind if it is currently open, and remove it from the application's window map.
+    /// If no window of the specified kind is currently open, the function returns a no-op task that does nothing when executed.
     fn close_window(&mut self, kind: WindowKind) -> Task<Message> {
         if let Some(id) = self.find_window_by_kind(kind) {
             self.windows.remove(&id);
@@ -557,6 +659,17 @@ impl App {
     }
 
     /// Opens `url` in the default browser, routing any error to the error view.
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - The URL to open in the default web browser.
+    ///
+    /// # Returns
+    ///
+    /// A `Task<Message>` that, when executed, will attempt to open the specified URL in the user's default web browser.
+    /// If the operation is successful, it logs the action and does nothing further.
+    /// If an error occurs while trying to open the URL, it logs the error and updates the application's state with the error message.
+    /// It returns a task that will trigger the opening of the error view to inform the user about the issue.
     fn open_url_or_error(&mut self, url: &str) -> Task<Message> {
         match services::open_website(url) {
             Ok(_) => {
@@ -573,6 +686,17 @@ impl App {
 
     /// Builds a [`Task`] that checks for updates and reports results via
     /// [`Message::UpdateCheckCompleted`].
+    ///
+    /// # Arguments
+    ///
+    /// * `show_no_update_view` - A boolean flag indicating whether to show a "No Update" view if no updates are found. If `true`, the application will display a view informing the user that they are using the latest version. If `false`, the application will simply do nothing if no updates are available.
+    ///
+    /// # Returns
+    ///
+    /// A `Task<Message>` that, when executed, will perform an asynchronous check for updates using the application's `UpdateService`.
+    /// The task will gather necessary information such as the current version, platform, and architecture, and then call the update service to check for available updates.
+    /// Once the check is completed, it will produce a `Message::UpdateCheckCompleted` message containing the result of the update check and the `show_no_update_view` flag,
+    /// which can be used by the application to determine how to respond to the update check results (e.g., whether to display a "No Update" view).
     fn spawn_update_check(&self, show_no_update_view: bool) -> Task<Message> {
         let semver = env!("CARGO_PKG_VERSION").to_string();
         let platform = crate::get_platform().to_string();
@@ -588,9 +712,19 @@ impl App {
     }
 }
 
-// ── Window ────────────────────────────────────────────────────────────────────
-
 impl Window {
+    /// Creates a new `Window` instance with the specified title, kind, and theme.
+    ///
+    /// # Arguments
+    ///
+    /// * `title` - A `String` representing the title of the window, which will be displayed in the window's title bar.
+    /// * `kind` - A `WindowKind` enum value that categorizes the type of window (e.g., Main, Settings, Update, Error, About, NoUpdate, Results). This is used to manage different windows within the application and determine their behavior and content.
+    /// * `theme` - A `Theme` object that specifies the visual theme of the window (e.g., light, dark, or custom). This allows the window to be styled according to the user's preferences or the application's design.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of the `Window` struct, initialized with the provided title, kind, and theme.
+    /// The `current_scale` field is set to a default value of `1.0`, indicating that the window is initially displayed at its normal scale.
     fn new(title: String, kind: WindowKind, theme: Theme) -> Self {
         Self {
             title,
@@ -601,16 +735,27 @@ impl Window {
     }
 }
 
-// ── Free async helpers ────────────────────────────────────────────────────────
-
 /// Compresses all `input` files concurrently, then optionally deletes the originals.
 /// Extracted so the `update()` match arm stays readable.
+///
+/// # Arguments
+///
+/// * `input` - A vector of strings representing the file paths of the images to be compressed.
+/// * `params` - A `CompressionParams` struct containing the parameters for the compression process, such as output path, scale, quality, format, and other options.
+/// * `image_service` - An instance of the `ImageService` that provides the functionality to perform image compression. This service will be used to compress each image according to the specified parameters.
+/// * `delete_original` - A boolean flag indicating whether to delete the original image files after successful compression. If `true`, the function will attempt to delete the original files once they have been compressed and will return an error if any file fails to delete. If `false`, the original files will be preserved after compression.
+///
+/// # Returns
+///
+/// A `Result` containing a vector of `CompressionResult` objects if the compression process is successful, or a `String` error message if any part of the process fails.
+/// The function performs several steps, including validating input parameters, resolving output paths while handling potential collisions, compressing images concurrently using a blocking thread pool,
+/// collecting results and errors, and optionally deleting original files. If any errors occur during compression or file deletion, the function will return an aggregated error message detailing all issues encountered.
 async fn compress_images(
     input: Vec<String>,
     params: CompressionParams,
     image_service: ImageService,
     delete_original: bool,
-) -> Result<(), String> {
+) -> Result<Vec<CompressionResult>, String> {
     if input.is_empty() {
         return Err("Input path cannot be empty".to_string());
     }
@@ -665,7 +810,7 @@ async fn compress_images(
     };
 
     // Compress every file concurrently on the blocking thread pool.
-    let handles: Vec<tokio::task::JoinHandle<Result<(), String>>> = input
+    let handles: Vec<tokio::task::JoinHandle<Result<CompressionResult, String>>> = input
         .iter()
         .zip(resolved_paths.iter())
         .map(|(file, out_path)| {
@@ -677,17 +822,15 @@ async fn compress_images(
         })
         .collect();
 
-    let errors: Vec<String> = {
-        let mut errs = Vec::new();
-        for handle in handles {
-            match handle.await {
-                Ok(Ok(())) => {}
-                Ok(Err(e)) => errs.push(e),
-                Err(e) => errs.push(format!("Compression task panicked: {e}")),
-            }
+    let mut results: Vec<CompressionResult> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+    for handle in handles {
+        match handle.await {
+            Ok(Ok(r)) => results.push(r),
+            Ok(Err(e)) => errors.push(e),
+            Err(e) => errors.push(format!("Compression task panicked: {e}")),
         }
-        errs
-    };
+    }
 
     if !errors.is_empty() {
         return Err(errors.join("\n"));
@@ -700,5 +843,5 @@ async fn compress_images(
         }
     }
 
-    Ok(())
+    Ok(results)
 }

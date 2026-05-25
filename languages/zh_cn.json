@@ -25,6 +25,7 @@
   "automaticallyCheckForUpdates": "自动检查更新",
   "deleteOriginalFilesAfterCompression": "压缩后删除原始文件",
   "preserveExifData": "保留 EXIF 数据",
+  "showCompressionResults": "显示压缩结果",
   "theme": "主题：",
   "selectTheme": "选择主题",
   "language": "语言：",
@@ -36,5 +37,11 @@
   "download": "下载",
   "unknownError": "发生未知错误，请重试。",
   "selectFiles": "选择文件",
-  "selectFolder": "选择文件夹"
+  "selectFolder": "选择文件夹",
+  "compressrResults": "Compressr - 结果",
+  "file": "文件",
+  "original": "原始",
+  "compressedSize": "压缩后",
+  "saved": "节省",
+  "filesTotal": "共 {count} 个文件"
 }
