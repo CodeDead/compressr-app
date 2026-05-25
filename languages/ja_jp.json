@@ -25,6 +25,7 @@
   "automaticallyCheckForUpdates": "自動的にアップデートを確認する",
   "deleteOriginalFilesAfterCompression": "圧縮後に元のファイルを削除する",
   "preserveExifData": "EXIFデータを保持する",
+  "showCompressionResults": "圧縮結果を表示する",
   "theme": "テーマ:",
   "selectTheme": "テーマを選択",
   "language": "言語:",
@@ -36,5 +37,11 @@
   "download": "ダウンロード",
   "unknownError": "不明なエラーが発生しました。もう一度お試しください。",
   "selectFiles": "ファイルを選択",
-  "selectFolder": "フォルダを選択"
+  "selectFolder": "フォルダを選択",
+  "compressrResults": "Compressr - 結果",
+  "file": "ファイル",
+  "original": "元のサイズ",
+  "compressedSize": "圧縮後",
+  "saved": "節約",
+  "filesTotal": "合計 {count} ファイル"
 }

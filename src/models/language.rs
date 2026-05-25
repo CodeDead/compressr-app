@@ -39,6 +39,8 @@ pub struct Language {
     pub delete_original_files_after_compression: String,
     #[serde(rename = "preserveExifData")]
     pub preserve_exif_data: String,
+    #[serde(rename = "showCompressionResults")]
+    pub show_compression_results: String,
     pub theme: String,
     #[serde(rename = "selectTheme")]
     pub select_theme: String,
@@ -59,4 +61,13 @@ pub struct Language {
     pub select_files: String,
     #[serde(rename = "selectFolder")]
     pub select_folder: String,
+    #[serde(rename = "compressrResults")]
+    pub compressr_results: String,
+    pub file: String,
+    pub original: String,
+    #[serde(rename = "compressedSize")]
+    pub compressed_size: String,
+    pub saved: String,
+    #[serde(rename = "filesTotal")]
+    pub files_total: String,
 }

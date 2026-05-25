@@ -30,6 +30,7 @@ pub struct Settings {
     pub delete_files_after_compression: bool,
     pub language_key: String,
     pub preserve_exif: bool,
+    pub show_compression_results: bool,
 }
 
 impl Default for Settings {
@@ -43,6 +44,7 @@ impl Default for Settings {
             delete_files_after_compression: false,
             language_key: "en_US".to_string(),
             preserve_exif: false,
+            show_compression_results: true,
         };
 
         // Persist the defaults immediately so subsequent loads succeed.
@@ -54,6 +56,10 @@ impl Default for Settings {
 
 impl Settings {
     /// Loads settings from `config.json`, falling back to defaults on any error.
+    ///
+    /// # Returns
+    ///
+    /// The loaded settings, or defaults if loading fails.
     pub fn load_from_file() -> Self {
         match fs::read_to_string(CONFIG_PATH) {
             Ok(json) => serde_json::from_str(&json).unwrap_or_else(|e| {

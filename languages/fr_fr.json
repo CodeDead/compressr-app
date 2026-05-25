@@ -25,6 +25,7 @@
   "automaticallyCheckForUpdates": "Vérifier automatiquement les mises à jour",
   "deleteOriginalFilesAfterCompression": "Supprimer les fichiers originaux après compression",
   "preserveExifData": "Conserver les données EXIF",
+  "showCompressionResults": "Afficher les résultats de compression",
   "theme": "Thème:",
   "selectTheme": "Sélectionner le thème",
   "language": "Langue:",
@@ -36,5 +37,11 @@
   "download": "Télécharger",
   "unknownError": "Une erreur inconnue s'est produite. Veuillez réessayer.",
   "selectFiles": "Sélectionner des fichiers",
-  "selectFolder": "Sélectionner un dossier"
+  "selectFolder": "Sélectionner un dossier",
+  "compressrResults": "Compressr - Résultats",
+  "file": "Fichier",
+  "original": "Original",
+  "compressedSize": "Compressé",
+  "saved": "Économisé",
+  "filesTotal": "{count} fichier(s) au total"
 }

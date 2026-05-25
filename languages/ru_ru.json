@@ -25,6 +25,7 @@
   "automaticallyCheckForUpdates": "Автоматически проверять обновления",
   "deleteOriginalFilesAfterCompression": "Удалить оригинальные файлы после сжатия",
   "preserveExifData": "Сохранять данные EXIF",
+  "showCompressionResults": "Показывать результаты сжатия",
   "theme": "Тема:",
   "selectTheme": "Выберите тему",
   "language": "Язык:",
@@ -36,5 +37,11 @@
   "download": "Скачать",
   "unknownError": "Произошла неизвестная ошибка. Пожалуйста, попробуйте снова.",
   "selectFiles": "Выбрать файлы",
-  "selectFolder": "Выбрать папку"
+  "selectFolder": "Выбрать папку",
+  "compressrResults": "Compressr - Результаты",
+  "file": "Файл",
+  "original": "Оригинал",
+  "compressedSize": "Сжатый",
+  "saved": "Сохранено",
+  "filesTotal": "Всего {count} файл(ов)"
 }
