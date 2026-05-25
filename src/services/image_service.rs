@@ -237,7 +237,7 @@ impl ImageService {
             }
             OutputFormat::WebP => {
                 let encoder = webp::Encoder::from_image(img)
-                    .map_err(|e| format!("Failed to create WebP encoder: {:?}", e))?;
+                    .map_err(|e| format!("Failed to create WebP encoder: {e}"))?;
 
                 let webp_memory = if params.quality == 100 {
                     encoder.encode_lossless()
