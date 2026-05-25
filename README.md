@@ -71,6 +71,7 @@ make release VERSION=1.0.0
 - [reqwest](https://crates.io/crates/reqwest)
 - [semver](https://crates.io/crates/semver)
 - [img-parts](https://crates.io/crates/img-parts)
+- [webp](https://crates.io/crates/webp)
 
 ## About
 

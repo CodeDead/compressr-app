@@ -36,11 +36,12 @@ pub fn view(state: &State) -> Element<'_, Message> {
         button(row![text(current_language.browse.as_str()), text(" \u{25BE}"),].spacing(2));
     let mut browse_output_button = button(current_language.browse.as_str());
 
-    let mut quality_slider = if state.format == OutputFormat::Jpeg {
-        slider(1..=100, state.quality, |_| Message::IgnoreQuality)
-    } else {
-        slider(1..=100, 100, |_| Message::IgnoreQuality)
-    };
+    let mut quality_slider =
+        if state.format == OutputFormat::Jpeg || state.format == OutputFormat::WebP {
+            slider(1..=100, state.quality, |_| Message::IgnoreQuality)
+        } else {
+            slider(1..=100, 100, |_| Message::IgnoreQuality)
+        };
     let mut scale_slider = slider(1..=100, state.scale, |_| Message::IgnoreScale);
 
     let mut format_pick_list = pick_list(&OutputFormat::ALL[..], Some(state.format), |_| {
@@ -56,7 +57,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
         text_output_path = text_output_path.on_input(|_| Message::SelectOutput);
         browse_output_button = browse_output_button.on_press(Message::SelectOutput);
 
-        if state.format == OutputFormat::Jpeg {
+        if state.format == OutputFormat::Jpeg || state.format == OutputFormat::WebP {
             quality_slider = slider(1..=100, state.quality, Message::QualityChanged);
         }
 

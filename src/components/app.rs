@@ -313,7 +313,7 @@ impl App {
             }
             Message::FormatSelected(f) => {
                 self.state.format = f;
-                if f != OutputFormat::Jpeg {
+                if f != OutputFormat::Jpeg && f != OutputFormat::WebP {
                     self.state.quality = 100;
                 }
                 Task::none()

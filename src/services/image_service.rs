@@ -79,7 +79,7 @@ pub struct CompressionParams {
     pub width: Option<u32>,
     /// Desired output height in pixels (optional).
     pub height: Option<u32>,
-    /// JPEG quality (0–100); ignored for other formats.
+    /// JPEG/WEBP Image quality (0–100); ignored for other formats.
     pub quality: u8,
     /// Output container format.
     pub format: OutputFormat,
@@ -107,13 +107,15 @@ impl ImageService {
     /// Returns an error string if the image cannot be loaded, encoded, or saved.
     pub fn compress_single(&self, file: String, params: &CompressionParams) -> Result<(), String> {
         // Validate explicit dimensions before doing any I/O.
-        if let (Some(w), Some(h)) = (params.width, params.height) {
-            if w < 1 {
-                return Err("Width cannot be smaller than 1".to_string());
-            }
-            if h < 1 {
-                return Err("Height cannot be smaller than 1".to_string());
-            }
+        if let Some(w) = params.width
+            && w < 1
+        {
+            return Err("Width cannot be smaller than 1".to_string());
+        }
+        if let Some(h) = params.height
+            && h < 1
+        {
+            return Err("Height cannot be smaller than 1".to_string());
         }
 
         let source_exif = self.read_exif(&file, params.preserve_exif);
@@ -181,15 +183,23 @@ impl ImageService {
         // Scale takes effect only when no explicit dimensions are set.
         if params.width.is_none() && params.height.is_none() && params.scale < 100 {
             let (w, h) = img.dimensions();
-            img = img.resize(
-                w * params.scale / 100,
-                h * params.scale / 100,
-                image::imageops::FilterType::Lanczos3,
-            );
+            let new_w = (w * params.scale / 100).max(1);
+            let new_h = (h * params.scale / 100).max(1);
+            img = img.resize(new_w, new_h, image::imageops::FilterType::Lanczos3);
         }
 
         match (params.width, params.height) {
             (Some(w), Some(h)) => img.resize(w, h, image::imageops::FilterType::Lanczos3),
+            (Some(w), None) => {
+                let (ow, oh) = img.dimensions();
+                let h = ((oh as f32 * (w as f32 / ow as f32)).round() as u32).max(1);
+                img.resize(w, h, image::imageops::FilterType::Lanczos3)
+            }
+            (None, Some(h)) => {
+                let (ow, oh) = img.dimensions();
+                let w = ((ow as f32 * (h as f32 / oh as f32)).round() as u32).max(1);
+                img.resize(w, h, image::imageops::FilterType::Lanczos3)
+            }
             _ => img,
         }
     }
@@ -197,12 +207,12 @@ impl ImageService {
     /// Resolves the final output file path from the source file path and params.
     pub fn resolve_output_path(&self, file: &str, params: &CompressionParams) -> String {
         if params.is_output_a_directory {
-            let file_name_with_extension = Path::new(file)
-                .file_name()
+            let file_stem = Path::new(file)
+                .file_stem()
                 .and_then(|name| name.to_str())
                 .unwrap_or("output");
 
-            let stem = format!("{}_compressed", file_name_with_extension);
+            let stem = format!("{}_compressed", file_stem);
 
             Path::new(&params.output_path)
                 .join(format!("{}.{}", stem, params.format.extension()))
@@ -226,15 +236,16 @@ impl ImageService {
                     .map_err(|e| format!("Failed to encode JPEG: {e}"))?;
             }
             OutputFormat::WebP => {
-                let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut cursor);
-                encoder
-                    .encode(
-                        &img.to_rgba8(),
-                        img.width(),
-                        img.height(),
-                        ExtendedColorType::Rgba8,
-                    )
-                    .map_err(|e| format!("Failed to encode WebP: {e}"))?;
+                let encoder = webp::Encoder::from_image(img)
+                    .map_err(|e| format!("Failed to create WebP encoder: {:?}", e))?;
+
+                let webp_memory = if params.quality == 100 {
+                    encoder.encode_lossless()
+                } else {
+                    encoder.encode(params.quality as f32)
+                };
+
+                cursor.get_mut().extend_from_slice(&webp_memory);
             }
             OutputFormat::Png => {
                 img.write_to(&mut cursor, ImageFormat::Png)
