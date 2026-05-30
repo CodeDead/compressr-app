@@ -317,6 +317,19 @@ impl App {
                 Task::none()
             }
             Message::Compress => {
+                if self.state.input_path.is_empty() {
+                    self.state.last_error_message = Some(
+                        "No input files selected. Please select at least one file.".to_string(),
+                    );
+                    return Task::done(Message::OpenErrorView);
+                }
+                if self.state.output_path.is_empty() {
+                    self.state.last_error_message = Some(
+                        "No output directory selected. Please select an output directory."
+                            .to_string(),
+                    );
+                    return Task::done(Message::OpenErrorView);
+                }
                 self.state.is_compressing = true;
                 self.state.compression_succeeded = false;
                 self.state.show_input_dropdown = false;
@@ -370,7 +383,7 @@ impl App {
                                     .with_file_name(format!("{}_{}.{}", stem, count, ext))
                                     .to_string_lossy()
                                     .into_owned();
-                                seen.entry(disambiguated.clone()).or_insert(0);
+                                seen.insert(disambiguated.clone(), 1);
                                 disambiguated
                             }
                         })
