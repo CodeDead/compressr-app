@@ -29,6 +29,8 @@ pub struct State {
     pub languages: Vec<Language>,
     pub main_view_icons: MainViewIcons,
     pub show_input_dropdown: bool,
+    pub progress_completed: usize,
+    pub progress_total: usize,
 }
 
 impl Default for State {
@@ -97,6 +99,8 @@ impl Default for State {
             languages,
             main_view_icons,
             show_input_dropdown: false,
+            progress_completed: 0,
+            progress_total: 0,
         }
     }
 }

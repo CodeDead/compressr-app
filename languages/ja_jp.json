@@ -1,6 +1,6 @@
 {
   "languageKey": "ja_JP",
-  "languageName": "日本語",
+  "languageName": "日本語 (日本)",
   "input": "入力:",
   "output": "出力:",
   "browse": "参照",
@@ -11,7 +11,6 @@
   "height": "高さ",
   "compress": "圧縮",
   "compressing": "圧縮中",
-  "compressed": "圧縮済み",
   "latestVersionInstalled": "最新バージョンがインストールされています！",
   "compressrAbout": "Compressr - このアプリについて",
   "compressrSettings": "Compressr - 設定",
@@ -43,5 +42,6 @@
   "original": "元のサイズ",
   "compressedSize": "圧縮後",
   "saved": "節約",
-  "filesTotal": "合計 {count} ファイル"
+  "filesTotal": "合計 {count} ファイル",
+  "compressingProgress": "圧縮中 ({completed}/{total})"
 }

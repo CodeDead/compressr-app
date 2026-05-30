@@ -46,7 +46,7 @@ pub enum Message {
     ToggleInputDropdown,
     DismissInputDropdown,
     Compress,
-    CompressionCompleted(Result<Vec<CompressionResult>, String>),
+    SingleFileCompressed(Result<CompressionResult, String>),
     CloseResultsView,
     FormatSelected(OutputFormat),
     QualityChanged(u8),
@@ -88,6 +88,7 @@ pub struct App {
     pub state: State,
     pub image_service: ImageService,
     pub update_service: UpdateService,
+    icon: window::icon::Icon,
 }
 
 impl App {
@@ -100,7 +101,7 @@ impl App {
         info!("Initializing new App");
 
         let icon = Self::load_icon();
-        let settings = Self::make_window_settings((650.0, 420.0), icon);
+        let settings = Self::make_window_settings((650.0, 420.0), icon.clone());
         let (_, open) = window::open(settings);
 
         let state = State::default();
@@ -112,6 +113,7 @@ impl App {
                 state,
                 image_service: ImageService::new(),
                 update_service: UpdateService::new(update_server),
+                icon,
             },
             open.map(Message::MainViewOpened),
         )
@@ -318,6 +320,8 @@ impl App {
                 self.state.is_compressing = true;
                 self.state.compression_succeeded = false;
                 self.state.show_input_dropdown = false;
+                self.state.compression_results = Vec::new();
+                self.state.last_error_message = None;
 
                 let input = self.state.input_path.clone();
                 let output = self.state.output_path.clone();
@@ -335,31 +339,110 @@ impl App {
                     preserve_exif: self.state.settings.preserve_exif,
                     output_path_override: None,
                 };
-                let delete_original = self.state.settings.delete_files_after_compression;
+                self.state.progress_total = input.len();
+                self.state.progress_completed = 0;
 
-                Task::perform(
-                    compress_images(input, params, image_service, delete_original),
-                    Message::CompressionCompleted,
-                )
+                // Resolve output paths, disambiguating collisions
+                let resolved_paths: Vec<String> = {
+                    use std::collections::HashMap;
+                    let mut seen: HashMap<String, u32> = HashMap::new();
+                    input
+                        .iter()
+                        .map(|file| {
+                            let candidate = image_service.resolve_output_path(file, &params);
+                            let count = seen.entry(candidate.clone()).or_insert(0);
+                            *count += 1;
+                            if *count == 1 {
+                                candidate
+                            } else {
+                                let path = std::path::PathBuf::from(&candidate);
+                                let ext = path
+                                    .extension()
+                                    .and_then(|e| e.to_str())
+                                    .unwrap_or_default()
+                                    .to_owned();
+                                let stem = path
+                                    .file_stem()
+                                    .and_then(|s| s.to_str())
+                                    .unwrap_or("output")
+                                    .to_owned();
+                                let disambiguated = path
+                                    .with_file_name(format!("{}_{}.{}", stem, count, ext))
+                                    .to_string_lossy()
+                                    .into_owned();
+                                seen.entry(disambiguated.clone()).or_insert(0);
+                                disambiguated
+                            }
+                        })
+                        .collect()
+                };
+
+                let tasks: Vec<Task<Message>> = input
+                    .into_iter()
+                    .zip(resolved_paths)
+                    .map(|(file, out_path)| {
+                        let svc = image_service.clone();
+                        let mut p = params.clone();
+                        p.output_path_override = Some(out_path);
+                        Task::perform(
+                            tokio::task::spawn_blocking(move || svc.compress_single(file, &p)),
+                            |result| match result {
+                                Ok(r) => Message::SingleFileCompressed(r),
+                                Err(e) => Message::SingleFileCompressed(Err(format!(
+                                    "Task panicked: {e}"
+                                ))),
+                            },
+                        )
+                    })
+                    .collect();
+
+                Task::batch(tasks)
             }
-            Message::CompressionCompleted(result) => {
-                self.state.is_compressing = false;
+            Message::SingleFileCompressed(result) => {
+                self.state.progress_completed += 1;
                 match result {
-                    Ok(results) => {
-                        self.state.compression_succeeded = true;
-                        self.state.compression_results = results;
-                        if self.state.settings.show_compression_results {
-                            let title = self.state.current_language().compressr_results.clone();
-                            self.open_window(WindowKind::Results, title, (600.0, 400.0))
+                    Ok(r) => self.state.compression_results.push(r),
+                    Err(e) => {
+                        error!("Compression error: {e}");
+                        let msg = if let Some(ref existing) = self.state.last_error_message {
+                            format!("{existing}\n{e}")
                         } else {
-                            Task::none()
+                            e
+                        };
+                        self.state.last_error_message = Some(msg);
+                    }
+                }
+
+                if self.state.progress_completed == self.state.progress_total {
+                    self.state.is_compressing = false;
+
+                    let has_errors = self.state.last_error_message.is_some();
+                    let delete_original = self.state.settings.delete_files_after_compression;
+
+                    if has_errors {
+                        return Task::done(Message::OpenErrorView);
+                    }
+
+                    if delete_original {
+                        for file in &self.state.input_path {
+                            if let Err(e) = std::fs::remove_file(file) {
+                                error!("Failed to delete original file '{file}': {e}");
+                                self.state.last_error_message =
+                                    Some(format!("Failed to delete original file '{file}': {e}"));
+                                return Task::done(Message::OpenErrorView);
+                            }
                         }
                     }
-                    Err(err) => {
-                        error!("Compression failed: {err}");
-                        self.state.last_error_message = Some(err);
-                        Task::done(Message::OpenErrorView)
+
+                    self.state.compression_succeeded = true;
+                    if self.state.settings.show_compression_results {
+                        let title = self.state.current_language().compressr_results.clone();
+                        self.open_window(WindowKind::Results, title, (600.0, 400.0))
+                    } else {
+                        Task::none()
                     }
+                } else {
+                    Task::none()
                 }
             }
             Message::FormatSelected(f) => {
@@ -632,9 +715,10 @@ impl App {
         if self.windows.values().any(|w| w.kind == kind) {
             return Task::none();
         }
+        let icon = self.icon.clone();
         window::position(*last)
             .then(move |_| {
-                let (_, open) = window::open(Self::make_window_settings(size, Self::load_icon()));
+                let (_, open) = window::open(Self::make_window_settings(size, icon.clone()));
                 open
             })
             .map(move |id| Message::ViewOpened(title.clone(), kind, id))
@@ -733,115 +817,4 @@ impl Window {
             kind,
         }
     }
-}
-
-/// Compresses all `input` files concurrently, then optionally deletes the originals.
-/// Extracted so the `update()` match arm stays readable.
-///
-/// # Arguments
-///
-/// * `input` - A vector of strings representing the file paths of the images to be compressed.
-/// * `params` - A `CompressionParams` struct containing the parameters for the compression process, such as output path, scale, quality, format, and other options.
-/// * `image_service` - An instance of the `ImageService` that provides the functionality to perform image compression. This service will be used to compress each image according to the specified parameters.
-/// * `delete_original` - A boolean flag indicating whether to delete the original image files after successful compression. If `true`, the function will attempt to delete the original files once they have been compressed and will return an error if any file fails to delete. If `false`, the original files will be preserved after compression.
-///
-/// # Returns
-///
-/// A `Result` containing a vector of `CompressionResult` objects if the compression process is successful, or a `String` error message if any part of the process fails.
-/// The function performs several steps, including validating input parameters, resolving output paths while handling potential collisions, compressing images concurrently using a blocking thread pool,
-/// collecting results and errors, and optionally deleting original files. If any errors occur during compression or file deletion, the function will return an aggregated error message detailing all issues encountered.
-async fn compress_images(
-    input: Vec<String>,
-    params: CompressionParams,
-    image_service: ImageService,
-    delete_original: bool,
-) -> Result<Vec<CompressionResult>, String> {
-    if input.is_empty() {
-        return Err("Input path cannot be empty".to_string());
-    }
-    if params.output_path.is_empty() {
-        return Err("Output path cannot be empty".to_string());
-    }
-
-    // Pre-compute output paths and disambiguate any collisions caused by
-    // multiple input files sharing the same basename (e.g. from different
-    // directories).  Duplicate paths get a numeric suffix (_2, _3, …) so
-    // concurrent tasks never write to the same file.
-    let resolved_paths: Vec<String> = {
-        use std::collections::HashMap;
-        // Count how many times each candidate path has been seen so far.
-        let mut seen: HashMap<String, u32> = HashMap::new();
-        input
-            .iter()
-            .map(|file| {
-                let candidate = image_service.resolve_output_path(file, &params);
-                let count = seen.entry(candidate.clone()).or_insert(0);
-                *count += 1;
-                if *count == 1 {
-                    // First occurrence — use the path as-is.
-                    candidate
-                } else {
-                    // Subsequent occurrences — insert a counter before the
-                    // final extension so the stem remains readable.
-                    // e.g. "out/photo.jpg_compressed.jpg"
-                    //   → "out/photo.jpg_compressed_2.jpg"
-                    let path = std::path::PathBuf::from(&candidate);
-                    let ext = path
-                        .extension()
-                        .and_then(|e| e.to_str())
-                        .unwrap_or_default()
-                        .to_owned();
-                    let stem = path
-                        .file_stem()
-                        .and_then(|s| s.to_str())
-                        .unwrap_or("output")
-                        .to_owned();
-                    let disambiguated = path
-                        .with_file_name(format!("{}_{}.{}", stem, count, ext))
-                        .to_string_lossy()
-                        .into_owned();
-                    // Update the seen-count for the new name too so that a
-                    // third collision doesn't accidentally reuse _2.
-                    seen.entry(disambiguated.clone()).or_insert(0);
-                    disambiguated
-                }
-            })
-            .collect()
-    };
-
-    // Compress every file concurrently on the blocking thread pool.
-    let handles: Vec<tokio::task::JoinHandle<Result<CompressionResult, String>>> = input
-        .iter()
-        .zip(resolved_paths.iter())
-        .map(|(file, out_path)| {
-            let file = file.clone();
-            let svc = image_service.clone();
-            let mut p = params.clone();
-            p.output_path_override = Some(out_path.clone());
-            tokio::task::spawn_blocking(move || svc.compress_single(file, &p))
-        })
-        .collect();
-
-    let mut results: Vec<CompressionResult> = Vec::new();
-    let mut errors: Vec<String> = Vec::new();
-    for handle in handles {
-        match handle.await {
-            Ok(Ok(r)) => results.push(r),
-            Ok(Err(e)) => errors.push(e),
-            Err(e) => errors.push(format!("Compression task panicked: {e}")),
-        }
-    }
-
-    if !errors.is_empty() {
-        return Err(errors.join("\n"));
-    }
-
-    if delete_original {
-        for file in &input {
-            std::fs::remove_file(file)
-                .map_err(|e| format!("Failed to delete original file '{file}': {e}"))?;
-        }
-    }
-
-    Ok(results)
 }

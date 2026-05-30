@@ -15,8 +15,6 @@ pub struct Language {
     pub width: String,
     pub height: String,
     pub compress: String,
-    pub compressing: String,
-    pub compressed: String,
     #[serde(rename = "latestVersionInstalled")]
     pub latest_version_installed: String,
     #[serde(rename = "compressrAbout")]
@@ -70,4 +68,6 @@ pub struct Language {
     pub saved: String,
     #[serde(rename = "filesTotal")]
     pub files_total: String,
+    #[serde(rename = "compressingProgress")]
+    pub compressing_progress: String,
 }

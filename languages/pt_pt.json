@@ -11,7 +11,6 @@
   "height": "Altura",
   "compress": "Comprimir",
   "compressing": "A comprimir",
-  "compressed": "Comprimido",
   "latestVersionInstalled": "Versão mais recente instalada!",
   "compressrAbout": "Compressr - Sobre",
   "compressrSettings": "Compressr - Definições",
@@ -43,5 +42,6 @@
   "original": "Original",
   "compressedSize": "Comprimido",
   "saved": "Poupado",
-  "filesTotal": "{count} ficheiro(s) no total"
+  "filesTotal": "{count} ficheiro(s) no total",
+  "compressingProgress": "A comprimir ({completed}/{total})"
 }

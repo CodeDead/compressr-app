@@ -11,7 +11,6 @@
   "height": "Висота",
   "compress": "Стиснути",
   "compressing": "Стиснення",
-  "compressed": "Стиснено",
   "latestVersionInstalled": "Встановлена остання версія!",
   "compressrAbout": "Compressr - Про програму",
   "compressrSettings": "Compressr - Налаштування",
@@ -43,5 +42,6 @@
   "original": "Оригінал",
   "compressedSize": "Стиснутий",
   "saved": "Збережено",
-  "filesTotal": "Усього {count} файл(ів)"
+  "filesTotal": "Усього {count} файл(ів)",
+  "compressingProgress": "Стиснення ({completed}/{total})"
 }

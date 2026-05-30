@@ -148,10 +148,12 @@ impl ImageService {
             return Err("Height cannot be smaller than 1".to_string());
         }
 
-        let original_size = fs::metadata(&file).map(|m| m.len()).unwrap_or(0);
+        let raw = fs::read(&file).map_err(|e| format!("Failed to read '{file}': {e}"))?;
+        let original_size = raw.len() as u64;
 
-        let source_exif = self.read_exif(&file, params.preserve_exif);
-        let img = image::open(&file).map_err(|e| format!("Failed to load image: {e}"))?;
+        let source_exif = self.read_exif(&raw, params.preserve_exif);
+        let img = image::load_from_memory(&raw)
+            .map_err(|e| format!("Failed to load image '{file}': {e}"))?;
         let img = self.apply_geometry(img, params);
 
         // Encode to an in-memory buffer — no intermediate file write needed.
@@ -188,36 +190,34 @@ impl ImageService {
         })
     }
 
-    /// Reads EXIF bytes from the source file if `preserve` is `true`.
+    /// Reads EXIF bytes from the raw file bytes if `preserve` is `true`.
     ///
     /// # Arguments
     ///
-    /// - `file`: The path to the source image file.
+    /// - `bytes`: The raw file bytes of the source image.
     /// - `preserve`: Whether to attempt reading EXIF data.
     ///
     /// # Returns
     ///
     /// An `Option` containing the EXIF bytes if successfully read and preserved, or `None` otherwise.
-    fn read_exif(&self, file: &str, preserve: bool) -> Option<img_parts::Bytes> {
+    fn read_exif(&self, bytes: &[u8], preserve: bool) -> Option<img_parts::Bytes> {
         if !preserve {
             return None;
         }
-        fs::read(file).ok().and_then(|raw| {
-            let b: img_parts::Bytes = raw.into();
-            img_parts::jpeg::Jpeg::from_bytes(b.clone())
-                .ok()
-                .and_then(|j| j.exif())
-                .or_else(|| {
-                    img_parts::png::Png::from_bytes(b.clone())
-                        .ok()
-                        .and_then(|p| p.exif())
-                })
-                .or_else(|| {
-                    img_parts::webp::WebP::from_bytes(b)
-                        .ok()
-                        .and_then(|w| w.exif())
-                })
-        })
+        let b: img_parts::Bytes = bytes.to_vec().into();
+        img_parts::jpeg::Jpeg::from_bytes(b.clone())
+            .ok()
+            .and_then(|j| j.exif())
+            .or_else(|| {
+                img_parts::png::Png::from_bytes(b.clone())
+                    .ok()
+                    .and_then(|p| p.exif())
+            })
+            .or_else(|| {
+                img_parts::webp::WebP::from_bytes(b)
+                    .ok()
+                    .and_then(|w| w.exif())
+            })
     }
 
     /// Applies scale and/or explicit dimensions to the image.
