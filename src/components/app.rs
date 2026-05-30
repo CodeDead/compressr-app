@@ -413,7 +413,7 @@ impl App {
                             |result| match result {
                                 Ok(r) => Message::SingleFileCompressed(r),
                                 Err(e) => Message::SingleFileCompressed(Err(format!(
-                                    "Task panicked: {e}"
+                                    "Compression task failed: {e}"
                                 ))),
                             },
                         )
