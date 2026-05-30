@@ -11,7 +11,6 @@
   "height": "Высота",
   "compress": "Сжать",
   "compressing": "Сжатие",
-  "compressed": "Сжато",
   "latestVersionInstalled": "Установлена последняя версия!",
   "compressrAbout": "Compressr - О программе",
   "compressrSettings": "Compressr - Настройки",
@@ -43,5 +42,6 @@
   "original": "Оригинал",
   "compressedSize": "Сжатый",
   "saved": "Сохранено",
-  "filesTotal": "Всего {count} файл(ов)"
+  "filesTotal": "Всего {count} файл(ов)",
+  "compressingProgress": "Сжатие ({completed}/{total})"
 }

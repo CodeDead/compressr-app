@@ -1,6 +1,6 @@
 {
   "languageKey": "zh_CN",
-  "languageName": "简体中文（中国）",
+  "languageName": "简体中文 (中国)",
   "input": "输入：",
   "output": "输出：",
   "browse": "浏览",
@@ -11,7 +11,6 @@
   "height": "高度",
   "compress": "压缩",
   "compressing": "压缩中",
-  "compressed": "已压缩",
   "latestVersionInstalled": "已安装最新版本！",
   "compressrAbout": "Compressr - 关于",
   "compressrSettings": "Compressr - 设置",
@@ -43,5 +42,6 @@
   "original": "原始",
   "compressedSize": "压缩后",
   "saved": "节省",
-  "filesTotal": "共 {count} 个文件"
+  "filesTotal": "共 {count} 个文件",
+  "compressingProgress": "压缩中 ({completed}/{total})"
 }

@@ -11,7 +11,6 @@
   "height": "Height",
   "compress": "Compress",
   "compressing": "Compressing",
-  "compressed": "Compressed",
   "latestVersionInstalled": "Latest version installed!",
   "compressrAbout": "Compressr - About",
   "compressrSettings": "Compressr - Settings",
@@ -43,5 +42,6 @@
   "original": "Original",
   "compressedSize": "Compressed",
   "saved": "Saved",
-  "filesTotal": "{count} file(s) total"
+  "filesTotal": "{count} file(s) total",
+  "compressingProgress": "Compressing ({completed}/{total})"
 }

@@ -1,11 +1,11 @@
 pub(crate) use crate::components::app::Message;
 use crate::components::state::State;
 use crate::services::image_service::OutputFormat;
-use iced::widget::{Image, Text};
+use iced::widget::{Image, progress_bar};
 use iced::widget::{button, column, container, pick_list, row, slider, space, text, text_input};
 use iced::{Element, Length, Theme, color};
 use iced_aw::widget::LabeledFrame;
-use iced_aw::{DropDown, drop_down, helpers::badge, number_input, style};
+use iced_aw::{DropDown, drop_down, number_input};
 
 /// Builds the main view of the application, displaying the current state and providing controls for user interaction.
 ///
@@ -197,18 +197,30 @@ pub fn view(state: &State) -> Element<'_, Message> {
             LabeledFrame::new(current_language.height.as_str(), height_input).width(Length::Fill)
         ],
         row![space::vertical()],
-        row![
-            state
-                .is_compressing
-                .then(|| badge(Text::new(current_language.compressing.as_str()))
-                    .style(style::badge::info)),
-            state
-                .compression_succeeded
-                .then(|| badge(Text::new(current_language.compressed.as_str()))
-                    .style(style::badge::success)),
-            space::horizontal(),
-            compress_button,
-        ],
+        {
+            let status_widget: Element<'_, Message> = if state.is_compressing {
+                let progress = if state.progress_total > 0 {
+                    state.progress_completed as f32 / state.progress_total as f32
+                } else {
+                    0.0
+                };
+                row![
+                    progress_bar(0.0..=1.0, progress),
+                    text(
+                        current_language
+                            .compressing_progress
+                            .replace("{completed}", &state.progress_completed.to_string())
+                            .replace("{total}", &state.progress_total.to_string())
+                    ),
+                ]
+                .spacing(8)
+                .align_y(iced::Alignment::Center)
+                .into()
+            } else {
+                row![space::horizontal(), compress_button,].into()
+            };
+            row![status_widget]
+        },
     ]
     .spacing(15)
     .padding(15);

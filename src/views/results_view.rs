@@ -4,18 +4,18 @@ use crate::components::state::State;
 use iced::widget::{button, column, container, row, scrollable, space, text};
 use iced::{Element, Length, color};
 
-/// Formats a byte count as a human-readable string (B, KB, MB, GB).
+/// Formats a byte count as a human-readable string (B, KiB, MiB, GiB).
 fn format_size(bytes: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = 1024 * KB;
     const GB: u64 = 1024 * MB;
 
     if bytes >= GB {
-        format!("{:.2} GB", bytes as f64 / GB as f64)
+        format!("{:.2} GiB", bytes as f64 / GB as f64)
     } else if bytes >= MB {
-        format!("{:.2} MB", bytes as f64 / MB as f64)
+        format!("{:.2} MiB", bytes as f64 / MB as f64)
     } else if bytes >= KB {
-        format!("{:.2} KB", bytes as f64 / KB as f64)
+        format!("{:.2} KiB", bytes as f64 / KB as f64)
     } else {
         format!("{} B", bytes)
     }
@@ -23,7 +23,9 @@ fn format_size(bytes: u64) -> String {
 
 /// Formats a percentage with a `+` prefix when the file grew and `-` when it shrank.
 fn format_pct(pct: f64) -> String {
-    if pct >= 0.0 {
+    if pct == 0.0 {
+        "0.0%".to_string()
+    } else if pct > 0.0 {
         format!("-{:.1}%", pct)
     } else {
         format!("+{:.1}%", pct.abs())
