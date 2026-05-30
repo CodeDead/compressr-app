@@ -357,17 +357,18 @@ impl App {
 
                 // Resolve output paths, disambiguating collisions
                 let resolved_paths: Vec<String> = {
-                    use std::collections::HashMap;
-                    let mut seen: HashMap<String, u32> = HashMap::new();
+                    use std::collections::HashSet;
+                    let mut seen: HashSet<String> = HashSet::new();
                     input
                         .iter()
                         .map(|file| {
                             let candidate = image_service.resolve_output_path(file, &params);
-                            let count = seen.entry(candidate.clone()).or_insert(0);
-                            *count += 1;
-                            if *count == 1 {
+                            if seen.insert(candidate.clone()) {
+                                // First time this path is used – keep it as-is.
                                 candidate
                             } else {
+                                // Collision: find the lowest suffix N ≥ 2 whose
+                                // resulting name is not already allocated.
                                 let path = std::path::PathBuf::from(&candidate);
                                 let ext = path
                                     .extension()
@@ -379,12 +380,22 @@ impl App {
                                     .and_then(|s| s.to_str())
                                     .unwrap_or("output")
                                     .to_owned();
-                                let disambiguated = path
-                                    .with_file_name(format!("{}_{}.{}", stem, count, ext))
-                                    .to_string_lossy()
-                                    .into_owned();
-                                seen.insert(disambiguated.clone(), 1);
-                                disambiguated
+                                let mut n: u32 = 2;
+                                loop {
+                                    let new_name = if ext.is_empty() {
+                                        format!("{}_{}", stem, n)
+                                    } else {
+                                        format!("{}_{}.{}", stem, n, ext)
+                                    };
+                                    let disambiguated = path
+                                        .with_file_name(&new_name)
+                                        .to_string_lossy()
+                                        .into_owned();
+                                    if seen.insert(disambiguated.clone()) {
+                                        break disambiguated;
+                                    }
+                                    n += 1;
+                                }
                             }
                         })
                         .collect()
