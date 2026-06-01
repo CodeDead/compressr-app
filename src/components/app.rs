@@ -101,7 +101,7 @@ impl App {
         info!("Initializing new App");
 
         let icon = Self::load_icon();
-        let settings = Self::make_window_settings((650.0, 420.0), icon.clone());
+        let settings = Self::make_window_settings((650.0, 385.0), icon.clone());
         let (_, open) = window::open(settings);
 
         let state = State::default();
