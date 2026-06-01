@@ -16,6 +16,9 @@ use iced_aw::{DropDown, drop_down, number_input};
 ///
 /// An Element representing the main view of the application, which can be rendered by the Iced framework.
 pub fn view(state: &State) -> Element<'_, Message> {
+    const LABEL_WIDTH: f32 = 120.0;
+    const DIM_LABEL_WIDTH: f32 = 80.0;
+
     let dark_icons = matches!(
         state.settings.theme,
         Theme::Light
@@ -165,34 +168,34 @@ pub fn view(state: &State) -> Element<'_, Message> {
 
     let content = iced::widget::column![
         row![
-            text(current_language.input.as_str()).width(Length::Fixed(120.0)),
+            text(current_language.input.as_str()).width(Length::Fixed(LABEL_WIDTH)),
             text_input_path.width(Length::Fill),
             container(browse_input_dropdown).width(Length::Shrink),
         ]
         .spacing(10)
         .align_y(iced::Alignment::Center),
         row![
-            text(current_language.output.as_str()).width(Length::Fixed(120.0)),
+            text(current_language.output.as_str()).width(Length::Fixed(LABEL_WIDTH)),
             text_output_path.width(Length::Fill),
             browse_output_button.width(Length::Shrink),
         ]
         .spacing(10)
         .align_y(iced::Alignment::Center),
         row![
-            text(current_language.format.as_str()).width(Length::Fixed(120.0)),
+            text(current_language.format.as_str()).width(Length::Fixed(LABEL_WIDTH)),
             format_pick_list.width(Length::Fill),
         ]
         .spacing(10)
         .align_y(iced::Alignment::Center),
         row![
-            text(current_language.quality.as_str()).width(Length::Fixed(120.0)),
+            text(current_language.quality.as_str()).width(Length::Fixed(LABEL_WIDTH)),
             quality_slider.width(Length::Fill),
             text(state.quality.to_string() + "%").width(Length::Shrink),
         ]
         .spacing(10)
         .align_y(iced::Alignment::Center),
         row![
-            text(current_language.scale.as_str()).width(Length::Fixed(120.0)),
+            text(current_language.scale.as_str()).width(Length::Fixed(LABEL_WIDTH)),
             scale_slider.width(Length::Fill),
             text(state.scale.to_string() + "%").width(Length::Shrink),
         ]
@@ -200,14 +203,14 @@ pub fn view(state: &State) -> Element<'_, Message> {
         .align_y(iced::Alignment::Center),
         row![
             row![
-                text(current_language.width.as_str()).width(Length::Fixed(80.0)),
+                text(current_language.width.as_str()).width(Length::Fixed(DIM_LABEL_WIDTH)),
                 width_input.width(Length::Fill),
             ]
             .spacing(10)
             .align_y(iced::Alignment::Center)
             .width(Length::Fill),
             row![
-                text(current_language.height.as_str()).width(Length::Fixed(80.0)),
+                text(current_language.height.as_str()).width(Length::Fixed(DIM_LABEL_WIDTH)),
                 height_input.width(Length::Fill),
             ]
             .spacing(10)
