@@ -21,7 +21,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
         color!(48, 48, 48, 0.8),
     );
 
-    let new_version = state.update_version.clone().unwrap_or("".to_string());
+    let new_version = state.update_version.clone().unwrap_or_default();
     let mut download_button = button(current_language.download.as_str())
         .style(button::primary)
         .width(Length::Shrink);

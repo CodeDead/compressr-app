@@ -3,8 +3,10 @@ use img_parts::ImageEXIF;
 use std::fs;
 use std::io::Cursor;
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct ImageService;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,8 +97,8 @@ impl CompressionResult {
 /// Parameters for a single image compression operation.
 #[derive(Debug, Clone)]
 pub struct CompressionParams {
-    /// Base output path (directory or file).
-    pub output_path: String,
+    /// Base output path (directory or file). Shared across batch items via `Arc`.
+    pub output_path: Arc<str>,
     /// Whether `output_path` refers to a directory.
     pub is_output_a_directory: bool,
     /// Scale factor to apply in percentage (values < 100 activate scaling).
@@ -135,7 +137,12 @@ impl ImageService {
         &self,
         file: String,
         params: &CompressionParams,
+        cancelled: Arc<AtomicBool>,
     ) -> Result<CompressionResult, String> {
+        if cancelled.load(Ordering::Relaxed) {
+            return Err("COMPRESSION_ABORTED".to_string());
+        }
+
         // Validate explicit dimensions before doing any I/O.
         if let Some(w) = params.width
             && w < 1
@@ -149,15 +156,29 @@ impl ImageService {
         }
 
         let raw = fs::read(&file).map_err(|e| format!("Failed to read '{file}': {e}"))?;
+
+        if cancelled.load(Ordering::Relaxed) {
+            return Err("COMPRESSION_ABORTED".to_string());
+        }
+
         let original_size = raw.len() as u64;
 
         let source_exif = self.read_exif(&raw, params.preserve_exif);
         let img = image::load_from_memory(&raw)
             .map_err(|e| format!("Failed to load image '{file}': {e}"))?;
+
+        if cancelled.load(Ordering::Relaxed) {
+            return Err("COMPRESSION_ABORTED".to_string());
+        }
+
         let img = self.apply_geometry(img, params);
 
         // Encode to an in-memory buffer — no intermediate file write needed.
         let encoded = self.encode(&img, params)?;
+
+        if cancelled.load(Ordering::Relaxed) {
+            return Err("COMPRESSION_ABORTED".to_string());
+        }
 
         // Optionally, inject EXIF into the in-memory buffer before the single
         // disk write, eliminating the previous read-back-from-disk round-trip.
@@ -173,6 +194,10 @@ impl ImageService {
             .output_path_override
             .clone()
             .unwrap_or_else(|| self.resolve_output_path(&file, params));
+
+        if cancelled.load(Ordering::Relaxed) {
+            return Err("COMPRESSION_ABORTED".to_string());
+        }
 
         fs::write(&output_path, final_bytes)
             .map_err(|e| format!("Failed to write output file: {e}"))?;
@@ -255,6 +280,31 @@ impl ImageService {
         }
     }
 
+    /// Extracts the raw pixel data and the corresponding color type from a `DynamicImage`.
+    ///
+    /// # Arguments
+    ///
+    /// * `img` - A reference to the `DynamicImage` from which the pixel data and color type will be extracted.
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing:
+    ///
+    /// * `Vec<u8>` - A vector of raw pixel data extracted from the image.
+    /// * `ExtendedColorType` - The color type associated with the image (e.g., `L8`, `La8`, `Rgb8`, `Rgba8`).
+    fn pixel_data(&self, img: &DynamicImage) -> (Vec<u8>, ExtendedColorType) {
+        match img {
+            DynamicImage::ImageLuma8(buf) => (buf.as_raw().clone(), ExtendedColorType::L8),
+            DynamicImage::ImageLumaA8(buf) => (buf.as_raw().clone(), ExtendedColorType::La8),
+            DynamicImage::ImageRgb8(buf) => (buf.as_raw().clone(), ExtendedColorType::Rgb8),
+            DynamicImage::ImageRgba8(buf) => (buf.as_raw().clone(), ExtendedColorType::Rgba8),
+            _ => {
+                let rgba = img.to_rgba8();
+                (rgba.into_raw(), ExtendedColorType::Rgba8)
+            }
+        }
+    }
+
     /// Resolves the final output file path from the source file path and params.
     ///
     /// # Arguments
@@ -274,12 +324,12 @@ impl ImageService {
 
             let stem = format!("{}_compressed", file_stem);
 
-            Path::new(&params.output_path)
+            Path::new(&*params.output_path)
                 .join(format!("{}.{}", stem, params.format.extension()))
                 .to_string_lossy()
                 .into_owned()
         } else {
-            params.output_path.clone()
+            params.output_path.to_string()
         }
     }
 
@@ -326,24 +376,16 @@ impl ImageService {
             }
             OutputFormat::Bmp => {
                 let mut encoder = image::codecs::bmp::BmpEncoder::new(&mut cursor);
+                let (bytes, color_type) = self.pixel_data(img);
                 encoder
-                    .encode(
-                        &img.to_rgba8(),
-                        img.width(),
-                        img.height(),
-                        ExtendedColorType::Rgba8,
-                    )
+                    .encode(&bytes, img.width(), img.height(), color_type)
                     .map_err(|e| format!("Failed to encode BMP: {e}"))?;
             }
             OutputFormat::Tiff => {
                 let encoder = image::codecs::tiff::TiffEncoder::new(&mut cursor);
+                let (bytes, color_type) = self.pixel_data(img);
                 encoder
-                    .write_image(
-                        &img.to_rgba8(),
-                        img.width(),
-                        img.height(),
-                        ExtendedColorType::Rgba8,
-                    )
+                    .write_image(&bytes, img.width(), img.height(), color_type)
                     .map_err(|e| format!("Failed to write TIFF: {e}"))?;
             }
         }

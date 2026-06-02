@@ -16,14 +16,12 @@ use iced::{Element, Length, color};
 pub fn view(state: &State) -> Element<'_, Message> {
     let current_language = state.current_language();
 
-    let mut has_error_to_copy = true;
-    let last_error_message = match state.last_error_message.clone() {
-        None => {
-            has_error_to_copy = false;
-            current_language.unknown_error.clone()
-        }
-        Some(e) => e,
-    };
+    let last_error_message = state
+        .last_error_message
+        .as_deref()
+        .unwrap_or(&current_language.unknown_error)
+        .to_string();
+    let has_error_to_copy = state.last_error_message.is_some();
 
     let header = get_header(
         current_language.compressr_error.clone(),
