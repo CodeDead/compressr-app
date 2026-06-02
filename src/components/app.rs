@@ -15,11 +15,12 @@ use iced::{Element, Size, Subscription, Task, Theme, clipboard, window};
 use log::{error, info};
 use rfd::FileDialog;
 use std::collections::BTreeMap;
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 #[derive(Debug)]
 pub struct Window {
     title: String,
-    current_scale: f32,
     theme: Theme,
     kind: WindowKind,
 }
@@ -53,11 +54,7 @@ pub enum Message {
     WidthChanged(i32),
     HeightChanged(i32),
     CompressionScaleChanged(u32),
-    IgnoreQuality,
-    IgnoreScale,
-    IgnoreFormatSelected,
-    IgnoreWidth,
-    IgnoreHeight,
+    Noop,
     AutoUpdateToggled(bool),
     DeleteFilesAfterCompressionToggled(bool),
     PreserveExifToggled(bool),
@@ -157,11 +154,8 @@ impl App {
     /// # Returns
     ///
     /// The current scale factor of the window, or 1.0 if no such window exists.
-    pub fn scale_factor(&self, window: window::Id) -> f32 {
-        self.windows
-            .get(&window)
-            .map(|w| w.current_scale)
-            .unwrap_or(1.0)
+    pub fn scale_factor(&self, _window: window::Id) -> f32 {
+        1.0
     }
 
     /// Subscribes to window close events and maps them to `Message::WindowClosed`.
@@ -231,7 +225,17 @@ impl App {
                 Task::none()
             }
             Message::WindowClosed(id) => {
+                let was_main_compressing = self
+                    .windows
+                    .get(&id)
+                    .is_some_and(|w| w.kind == WindowKind::Main && self.state.is_compressing);
                 self.windows.remove(&id);
+                if was_main_compressing {
+                    println!("Main compressing window closed. Exiting.");
+                    self.state
+                        .compression_aborted
+                        .store(true, Ordering::Relaxed);
+                }
                 if self.windows.is_empty() {
                     iced::exit()
                 } else {
@@ -251,7 +255,6 @@ impl App {
                 {
                     self.state.input_path = paths.iter().map(|p| p.display().to_string()).collect();
                 }
-                self.state.compression_succeeded = false;
                 Task::none()
             }
             Message::SelectOutput => {
@@ -269,7 +272,6 @@ impl App {
                         Err(e) => {
                             self.state.last_error_message =
                                 Some(format!("Could not read folder '{}': {e}", folder.display()));
-                            self.state.compression_succeeded = false;
                             return Task::done(Message::OpenErrorView);
                         }
                         Ok(entries) => {
@@ -296,7 +298,6 @@ impl App {
 
                             if !entry_errors.is_empty() {
                                 self.state.last_error_message = Some(entry_errors.join("\n"));
-                                self.state.compression_succeeded = false;
                                 return Task::done(Message::OpenErrorView);
                             }
 
@@ -305,7 +306,6 @@ impl App {
                         }
                     }
                 }
-                self.state.compression_succeeded = false;
                 Task::none()
             }
             Message::ToggleInputDropdown => {
@@ -330,20 +330,37 @@ impl App {
                     );
                     return Task::done(Message::OpenErrorView);
                 }
+                match std::fs::metadata(&self.state.output_path) {
+                    Ok(m) if m.is_dir() => {}
+                    Ok(_) => {
+                        self.state.last_error_message = Some(
+                            "Output path is a file, not a directory. Please select a directory."
+                                .to_string(),
+                        );
+                        return Task::done(Message::OpenErrorView);
+                    }
+                    Err(_) => {
+                        self.state.last_error_message = Some(format!(
+                            "Output directory '{}' does not exist.",
+                            self.state.output_path
+                        ));
+                        return Task::done(Message::OpenErrorView);
+                    }
+                }
                 self.state.is_compressing = true;
-                self.state.compression_succeeded = false;
+                self.state
+                    .compression_aborted
+                    .store(false, Ordering::Relaxed);
                 self.state.show_input_dropdown = false;
                 self.state.compression_results = Vec::new();
                 self.state.last_error_message = None;
 
                 let input = self.state.input_path.clone();
-                let output = self.state.output_path.clone();
+                let shared_output: Arc<str> = Arc::from(self.state.output_path.as_str());
                 let image_service = self.image_service.clone();
                 let params = CompressionParams {
-                    output_path: output.clone(),
-                    is_output_a_directory: std::fs::metadata(&output)
-                        .map(|m| m.is_dir())
-                        .unwrap_or(false),
+                    output_path: Arc::clone(&shared_output),
+                    is_output_a_directory: true,
                     scale: self.state.scale,
                     width: self.state.width,
                     height: self.state.height,
@@ -407,9 +424,12 @@ impl App {
                     .map(|(file, out_path)| {
                         let svc = image_service.clone();
                         let mut p = params.clone();
+                        let cancelled = Arc::clone(&self.state.compression_aborted);
                         p.output_path_override = Some(out_path);
                         Task::perform(
-                            tokio::task::spawn_blocking(move || svc.compress_single(file, &p)),
+                            tokio::task::spawn_blocking(move || {
+                                svc.compress_single(file, &p, cancelled)
+                            }),
                             |result| match result {
                                 Ok(r) => Message::SingleFileCompressed(r),
                                 Err(e) => Message::SingleFileCompressed(Err(format!(
@@ -423,6 +443,9 @@ impl App {
                 Task::batch(tasks)
             }
             Message::SingleFileCompressed(result) => {
+                if self.state.compression_aborted.load(Ordering::Relaxed) {
+                    return Task::none();
+                }
                 self.state.progress_completed += 1;
                 match result {
                     Ok(r) => self.state.compression_results.push(r),
@@ -458,7 +481,6 @@ impl App {
                         }
                     }
 
-                    self.state.compression_succeeded = true;
                     if self.state.settings.show_compression_results {
                         let title = self.state.current_language().compressr_results.clone();
                         self.open_window(WindowKind::Results, title, (600.0, 400.0))
@@ -492,11 +514,7 @@ impl App {
                 self.state.scale = s;
                 Task::none()
             }
-            Message::IgnoreQuality
-            | Message::IgnoreScale
-            | Message::IgnoreFormatSelected
-            | Message::IgnoreWidth
-            | Message::IgnoreHeight => Task::none(),
+            Message::Noop => Task::none(),
 
             // ── Settings ──────────────────────────────────────────────────────
             Message::AutoUpdateToggled(v) => {
@@ -542,7 +560,7 @@ impl App {
                     .languages
                     .iter()
                     .find(|l| l.language_name == new_language)
-                    .unwrap_or(&self.state.languages[0])
+                    .unwrap_or(self.state.languages.first().unwrap())
                     .language_key
                     .clone();
                 self.state.settings.language_key = key;
@@ -592,7 +610,7 @@ impl App {
                     if !show_no_update_view {
                         return Task::none();
                     }
-                    let title = self.state.current_language().compressr_update.clone();
+                    let title = self.state.current_language().compressr_no_update.clone();
                     self.open_window(WindowKind::NoUpdate, title, (400.0, 180.0))
                 }
                 Err(err) => {
@@ -832,13 +850,7 @@ impl Window {
     /// # Returns
     ///
     /// A new instance of the `Window` struct, initialized with the provided title, kind, and theme.
-    /// The `current_scale` field is set to a default value of `1.0`, indicating that the window is initially displayed at its normal scale.
     fn new(title: String, kind: WindowKind, theme: Theme) -> Self {
-        Self {
-            title,
-            current_scale: 1.0,
-            theme,
-            kind,
-        }
+        Self { title, theme, kind }
     }
 }

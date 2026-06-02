@@ -26,12 +26,15 @@ fn main() -> iced::Result {
         .run()
 }
 
-/// Get the current platform as a string, used for update checks and other platform-specific logic.
+/// Determines the target platform for which the code is being compiled.
 ///
 /// # Returns
 ///
-/// A `String` representing the current platform, which can be "windows", "macos", or "linux".
-pub(crate) fn get_platform() -> String {
+/// A string slice (`&'static str`) indicating the platform:
+/// - `"windows"`: If the target operating system is Windows.
+/// - `"macos"`: If the target operating system is macOS.
+/// - `"linux"`: If the target operating system is Linux or another Unix-like system.
+pub(crate) fn get_platform() -> &'static str {
     if cfg!(target_os = "windows") {
         "windows"
     } else if cfg!(target_os = "macos") {
@@ -39,5 +42,4 @@ pub(crate) fn get_platform() -> String {
     } else {
         "linux"
     }
-    .to_string()
 }

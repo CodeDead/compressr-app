@@ -13,7 +13,7 @@ use iced::{Color, Length, color};
 ///
 /// A Column widget representing the header, which can be used in the application's views to maintain a consistent header design across different screens.
 pub fn get_header(title: String, background_color: Color) -> Column<'static, Message> {
-    let header = iced::widget::column![row![
+    iced::widget::column![row![
         container(iced::widget::column![row![
             text(title)
                 .size(20)
@@ -36,7 +36,5 @@ pub fn get_header(title: String, background_color: Color) -> Column<'static, Mes
             },
             snap: false,
         })
-    ]];
-
-    header
+    ]]
 }

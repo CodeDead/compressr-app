@@ -17,7 +17,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
     let current_language = state.current_language();
 
     let header = get_header(
-        current_language.compressr_update.clone(),
+        current_language.compressr_no_update.clone(),
         color!(48, 48, 48, 0.8),
     );
 

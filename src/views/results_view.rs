@@ -80,8 +80,10 @@ pub fn view(state: &State) -> Element<'_, Message> {
     let file_list = scrollable(column(file_rows).spacing(4)).height(Length::Fill);
 
     // Totals row
-    let total_original: u64 = results.iter().map(|r| r.original_size).sum();
-    let total_compressed: u64 = results.iter().map(|r| r.compressed_size).sum();
+    let (total_original, total_compressed): (u64, u64) =
+        results.iter().fold((0, 0), |(o, c), r| {
+            (o + r.original_size, c + r.compressed_size)
+        });
     let total_pct = if total_original > 0 {
         let diff = total_original as f64 - total_compressed as f64;
         diff / total_original as f64 * 100.0

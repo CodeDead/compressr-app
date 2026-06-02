@@ -40,14 +40,14 @@ pub fn view(state: &State) -> Element<'_, Message> {
 
     let mut quality_slider =
         if state.format == OutputFormat::Jpeg || state.format == OutputFormat::WebP {
-            slider(1..=100, state.quality, |_| Message::IgnoreQuality)
+            slider(1..=100, state.quality, |_| Message::Noop)
         } else {
-            slider(1..=100, 100, |_| Message::IgnoreQuality)
+            slider(1..=100, 100, |_| Message::Noop)
         };
-    let mut scale_slider = slider(1..=100, state.scale, |_| Message::IgnoreScale);
+    let mut scale_slider = slider(1..=100, state.scale, |_| Message::Noop);
 
     let mut format_pick_list = pick_list(&OutputFormat::ALL[..], Some(state.format), |_| {
-        Message::IgnoreFormatSelected
+        Message::Noop
     });
 
     let mut compress_button = button(current_language.compress.as_str());
@@ -147,7 +147,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
     let height = state.height.unwrap_or(0) as i32;
 
     let width_input = if state.is_compressing {
-        number_input(&width, 0..=i32::MAX, |_| Message::IgnoreWidth)
+        number_input(&width, 0..=i32::MAX, |_| Message::Noop)
             .width(Length::Fill)
             .step(1)
     } else {
@@ -157,7 +157,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
     };
 
     let height_input = if state.is_compressing {
-        number_input(&height, 0..=i32::MAX, |_| Message::IgnoreHeight)
+        number_input(&height, 0..=i32::MAX, |_| Message::Noop)
             .width(Length::Fill)
             .step(1)
     } else {
@@ -190,14 +190,14 @@ pub fn view(state: &State) -> Element<'_, Message> {
         row![
             text(current_language.quality.as_str()).width(Length::Fixed(LABEL_WIDTH)),
             quality_slider.width(Length::Fill),
-            text(state.quality.to_string() + "%").width(Length::Shrink),
+            text(format!("{}%", state.quality)).width(Length::Shrink),
         ]
         .spacing(10)
         .align_y(iced::Alignment::Center),
         row![
             text(current_language.scale.as_str()).width(Length::Fixed(LABEL_WIDTH)),
             scale_slider.width(Length::Fill),
-            text(state.scale.to_string() + "%").width(Length::Shrink),
+            text(format!("{}%", state.scale)).width(Length::Shrink),
         ]
         .spacing(10)
         .align_y(iced::Alignment::Center),

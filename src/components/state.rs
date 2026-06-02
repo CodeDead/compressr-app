@@ -2,6 +2,8 @@ use crate::components::settings::Settings;
 use crate::models::language::Language;
 use crate::services::image_service::{CompressionResult, OutputFormat};
 use iced::widget::image;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 pub struct MainViewIcons {
     pub settings: image::Handle,
@@ -19,7 +21,6 @@ pub struct State {
     pub quality: u8,
     pub format: OutputFormat,
     pub is_compressing: bool,
-    pub compression_succeeded: bool,
     pub compression_results: Vec<CompressionResult>,
     pub last_error_message: Option<String>,
     pub settings: Settings,
@@ -31,6 +32,7 @@ pub struct State {
     pub show_input_dropdown: bool,
     pub progress_completed: usize,
     pub progress_total: usize,
+    pub compression_aborted: Arc<AtomicBool>,
 }
 
 impl Default for State {
@@ -51,8 +53,9 @@ impl Default for State {
         ///
         /// A `Language` instance deserialized from the provided JSON bytes.
         fn load_lang(bytes: &[u8], name: &str) -> Language {
-            let json = String::from_utf8_lossy(bytes);
-            serde_json::from_str::<Language>(&json)
+            let json = std::str::from_utf8(bytes)
+                .unwrap_or_else(|_| panic!("Language file '{name}' is not valid UTF-8"));
+            serde_json::from_str::<Language>(json)
                 .unwrap_or_else(|err| panic!("Failed to deserialize {name} language file: {err}"))
         }
 
@@ -89,7 +92,6 @@ impl Default for State {
             quality: 100,
             format: OutputFormat::Jpeg,
             is_compressing: false,
-            compression_succeeded: false,
             compression_results: Vec::new(),
             last_error_message: None,
             settings: Settings::load_from_file(),
@@ -101,6 +103,7 @@ impl Default for State {
             show_input_dropdown: false,
             progress_completed: 0,
             progress_total: 0,
+            compression_aborted: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -116,6 +119,6 @@ impl State {
         self.languages
             .iter()
             .find(|l| l.language_key == self.settings.language_key)
-            .unwrap_or(&self.languages[0])
+            .unwrap_or(self.languages.first().unwrap())
     }
 }

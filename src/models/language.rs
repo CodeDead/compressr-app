@@ -25,6 +25,8 @@ pub struct Language {
     pub compressr_error: String,
     #[serde(rename = "compressrUpdate")]
     pub compressr_update: String,
+    #[serde(rename = "compressrNoUpdate")]
+    pub compressr_no_update: String,
     #[serde(rename = "aboutText")]
     pub about_text: String,
     pub website: String,
