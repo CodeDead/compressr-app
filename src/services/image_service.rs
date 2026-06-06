@@ -1,5 +1,6 @@
 use image::{DynamicImage, ExtendedColorType, GenericImageView, ImageEncoder, ImageFormat};
 use img_parts::ImageEXIF;
+use std::borrow::Cow;
 use std::fs;
 use std::io::Cursor;
 use std::path::Path;
@@ -145,14 +146,14 @@ impl ImageService {
 
         // Validate explicit dimensions before doing any I/O.
         if let Some(w) = params.width
-            && w < 1
+            && w == 0
         {
-            return Err("Width cannot be smaller than 1".to_string());
+            return Err("Width cannot be equal to 0".to_string());
         }
         if let Some(h) = params.height
-            && h < 1
+            && h == 0
         {
-            return Err("Height cannot be smaller than 1".to_string());
+            return Err("Height cannot be equal to 0".to_string());
         }
 
         let raw = fs::read(&file).map_err(|e| format!("Failed to read '{file}': {e}"))?;
@@ -217,6 +218,10 @@ impl ImageService {
 
     /// Reads EXIF bytes from the raw file bytes if `preserve` is `true`.
     ///
+    /// Uses `image::guess_format` (magic bytes) to detect the image format
+    /// first, so the buffer is cloned at most once and only the correct parser
+    /// is invoked.
+    ///
     /// # Arguments
     ///
     /// - `bytes`: The raw file bytes of the source image.
@@ -229,20 +234,29 @@ impl ImageService {
         if !preserve {
             return None;
         }
-        let b: img_parts::Bytes = bytes.to_vec().into();
-        img_parts::jpeg::Jpeg::from_bytes(b.clone())
-            .ok()
-            .and_then(|j| j.exif())
-            .or_else(|| {
-                img_parts::png::Png::from_bytes(b.clone())
+
+        let format = image::guess_format(bytes).ok()?;
+        match format {
+            ImageFormat::Jpeg => {
+                let b: img_parts::Bytes = bytes.to_vec().into();
+                img_parts::jpeg::Jpeg::from_bytes(b)
+                    .ok()
+                    .and_then(|j| j.exif())
+            }
+            ImageFormat::Png => {
+                let b: img_parts::Bytes = bytes.to_vec().into();
+                img_parts::png::Png::from_bytes(b)
                     .ok()
                     .and_then(|p| p.exif())
-            })
-            .or_else(|| {
+            }
+            ImageFormat::WebP => {
+                let b: img_parts::Bytes = bytes.to_vec().into();
                 img_parts::webp::WebP::from_bytes(b)
                     .ok()
                     .and_then(|w| w.exif())
-            })
+            }
+            _ => None,
+        }
     }
 
     /// Applies scale and/or explicit dimensions to the image.
@@ -259,8 +273,8 @@ impl ImageService {
         // Scale takes effect only when no explicit dimensions are set.
         if params.width.is_none() && params.height.is_none() && params.scale < 100 {
             let (w, h) = img.dimensions();
-            let new_w = (w * params.scale / 100).max(1);
-            let new_h = (h * params.scale / 100).max(1);
+            let new_w = ((w as u64 * params.scale as u64) / 100).max(1) as u32;
+            let new_h = ((h as u64 * params.scale as u64) / 100).max(1) as u32;
             img = img.resize(new_w, new_h, image::imageops::FilterType::Lanczos3);
         }
 
@@ -280,27 +294,26 @@ impl ImageService {
         }
     }
 
-    /// Extracts the raw pixel data and the corresponding color type from a `DynamicImage`.
+    /// Extracts raw pixel data and color type without unnecessary cloning.
     ///
     /// # Arguments
     ///
-    /// * `img` - A reference to the `DynamicImage` from which the pixel data and color type will be extracted.
+    /// - `img`: The `DynamicImage` from which to extract pixel data.
     ///
     /// # Returns
     ///
-    /// A tuple containing:
-    ///
-    /// * `Vec<u8>` - A vector of raw pixel data extracted from the image.
-    /// * `ExtendedColorType` - The color type associated with the image (e.g., `L8`, `La8`, `Rgb8`, `Rgba8`).
-    fn pixel_data(&self, img: &DynamicImage) -> (Vec<u8>, ExtendedColorType) {
+    /// A tuple containing a `Cow<'a, [u8]>` with the raw pixel data and an `ExtendedColorType` representing the color type.
+    fn pixel_data_slice<'a>(&self, img: &'a DynamicImage) -> (Cow<'a, [u8]>, ExtendedColorType) {
         match img {
-            DynamicImage::ImageLuma8(buf) => (buf.as_raw().clone(), ExtendedColorType::L8),
-            DynamicImage::ImageLumaA8(buf) => (buf.as_raw().clone(), ExtendedColorType::La8),
-            DynamicImage::ImageRgb8(buf) => (buf.as_raw().clone(), ExtendedColorType::Rgb8),
-            DynamicImage::ImageRgba8(buf) => (buf.as_raw().clone(), ExtendedColorType::Rgba8),
+            DynamicImage::ImageLuma8(buf) => (Cow::Borrowed(buf.as_raw()), ExtendedColorType::L8),
+            DynamicImage::ImageLumaA8(buf) => (Cow::Borrowed(buf.as_raw()), ExtendedColorType::La8),
+            DynamicImage::ImageRgb8(buf) => (Cow::Borrowed(buf.as_raw()), ExtendedColorType::Rgb8),
+            DynamicImage::ImageRgba8(buf) => {
+                (Cow::Borrowed(buf.as_raw()), ExtendedColorType::Rgba8)
+            }
             _ => {
                 let rgba = img.to_rgba8();
-                (rgba.into_raw(), ExtendedColorType::Rgba8)
+                (Cow::Owned(rgba.into_raw()), ExtendedColorType::Rgba8)
             }
         }
     }
@@ -376,14 +389,14 @@ impl ImageService {
             }
             OutputFormat::Bmp => {
                 let mut encoder = image::codecs::bmp::BmpEncoder::new(&mut cursor);
-                let (bytes, color_type) = self.pixel_data(img);
+                let (bytes, color_type) = self.pixel_data_slice(img);
                 encoder
                     .encode(&bytes, img.width(), img.height(), color_type)
                     .map_err(|e| format!("Failed to encode BMP: {e}"))?;
             }
             OutputFormat::Tiff => {
                 let encoder = image::codecs::tiff::TiffEncoder::new(&mut cursor);
-                let (bytes, color_type) = self.pixel_data(img);
+                let (bytes, color_type) = self.pixel_data_slice(img);
                 encoder
                     .write_image(&bytes, img.width(), img.height(), color_type)
                     .map_err(|e| format!("Failed to write TIFF: {e}"))?;

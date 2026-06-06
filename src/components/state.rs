@@ -36,22 +36,32 @@ pub struct State {
 }
 
 impl Default for State {
-    /// Provides default values for the application state.
+    /// Provides a blank application state using pure default settings (no file I/O).
+    ///
+    /// Prefer [`State::with_settings`] when you have already loaded settings from disk
+    /// and need to preserve them.
+    fn default() -> Self {
+        Self::with_settings(Settings::default())
+    }
+}
+
+impl State {
+    /// Constructs a `State` using the provided `settings`, loading all embedded language
+    /// files and icon assets.
+    ///
+    /// This is the primary constructor used by [`crate::components::app::App::new`], which
+    /// first calls [`Settings::load_from_file`] to obtain the settings (and a flag indicating
+    /// whether they were read from disk), then passes them here.
+    ///
+    /// # Arguments
+    ///
+    /// * `settings` - Pre-loaded (or default) application settings.
     ///
     /// # Returns
     ///
-    /// A State instance with default values.
-    fn default() -> Self {
+    /// A fully initialised `State`.
+    pub fn with_settings(settings: Settings) -> Self {
         /// Loads and deserializes a language JSON file from embedded bytes.
-        ///
-        /// # Arguments
-        ///
-        /// * `bytes` - The byte slice containing the JSON data for the language.
-        /// * `name` - The name of the language (used for error messages).
-        ///
-        /// # Returns
-        ///
-        /// A `Language` instance deserialized from the provided JSON bytes.
         fn load_lang(bytes: &[u8], name: &str) -> Language {
             let json = std::str::from_utf8(bytes)
                 .unwrap_or_else(|_| panic!("Language file '{name}' is not valid UTF-8"));
@@ -94,7 +104,7 @@ impl Default for State {
             is_compressing: false,
             compression_results: Vec::new(),
             last_error_message: None,
-            settings: Settings::load_from_file(),
+            settings,
             update_version: None,
             update_download_url: None,
             update_info_url: None,
@@ -106,9 +116,7 @@ impl Default for State {
             compression_aborted: Arc::new(AtomicBool::new(false)),
         }
     }
-}
 
-impl State {
     /// Returns a reference to the language matching the current `language_key` setting,
     /// falling back to the first language if no match is found.
     ///

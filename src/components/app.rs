@@ -101,8 +101,18 @@ impl App {
         let settings = Self::make_window_settings((650.0, 385.0), icon.clone());
         let (_, open) = window::open(settings);
 
-        let state = State::default();
+        let (loaded_settings, settings_loaded_from_file) =
+            crate::components::settings::Settings::load_from_file();
+        let mut state = State::with_settings(loaded_settings);
         let update_server = state.settings.update_server.clone();
+
+        // Only persist to disk when settings were NOT loaded from an existing file
+        // (first run, missing file, or corrupt config). Skips the redundant write
+        // on normal startups where the config was read successfully.
+        if !settings_loaded_from_file && let Err(e) = state.settings.save() {
+            error!("Failed to persist initial settings: {e}");
+            state.last_error_message = Some(e.to_string());
+        }
 
         (
             Self {
@@ -214,6 +224,14 @@ impl App {
                         self.current_theme(),
                     ),
                 );
+
+                // Show any pending startup error now that the main window exists
+                // for the error window to position relative to.
+                if self.state.last_error_message.is_some() {
+                    let title = self.state.current_language().compressr_error.clone();
+                    return self.open_window(WindowKind::Error, title, (400.0, 210.0));
+                }
+
                 if self.state.settings.auto_update {
                     return self.spawn_update_check(false);
                 }
@@ -231,7 +249,7 @@ impl App {
                     .is_some_and(|w| w.kind == WindowKind::Main && self.state.is_compressing);
                 self.windows.remove(&id);
                 if was_main_compressing {
-                    println!("Main compressing window closed. Exiting.");
+                    info!("Main compressing window closed. Exiting.");
                     self.state
                         .compression_aborted
                         .store(true, Ordering::Relaxed);
@@ -249,7 +267,7 @@ impl App {
                 if let Some(paths) = FileDialog::new()
                     .add_filter(
                         "Image files",
-                        &["png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff"],
+                        &["png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff", "tif"],
                     )
                     .pick_files()
                 {
@@ -267,7 +285,7 @@ impl App {
                 self.state.show_input_dropdown = false;
                 if let Some(folder) = FileDialog::new().pick_folder() {
                     const IMAGE_EXTENSIONS: &[&str] =
-                        &["png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff"];
+                        &["png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff", "tif"];
                     match std::fs::read_dir(&folder) {
                         Err(e) => {
                             self.state.last_error_message =
@@ -519,31 +537,26 @@ impl App {
             // ── Settings ──────────────────────────────────────────────────────
             Message::AutoUpdateToggled(v) => {
                 self.state.settings.auto_update = v;
-                self.state.settings.save();
-                Task::none()
+                self.handle_settings_save_result(self.state.settings.save())
             }
             Message::DeleteFilesAfterCompressionToggled(v) => {
                 self.state.settings.delete_files_after_compression = v;
-                self.state.settings.save();
-                Task::none()
+                self.handle_settings_save_result(self.state.settings.save())
             }
             Message::PreserveExifToggled(v) => {
                 self.state.settings.preserve_exif = v;
-                self.state.settings.save();
-                Task::none()
+                self.handle_settings_save_result(self.state.settings.save())
             }
             Message::ShowCompressionResultsToggled(v) => {
                 self.state.settings.show_compression_results = v;
-                self.state.settings.save();
-                Task::none()
+                self.handle_settings_save_result(self.state.settings.save())
             }
             Message::ThemeChanged(theme) => {
                 self.state.settings.theme = theme.clone();
-                self.state.settings.save();
                 self.windows
                     .values_mut()
                     .for_each(|w| w.theme = theme.clone());
-                Task::none()
+                self.handle_settings_save_result(self.state.settings.save())
             }
             Message::ResetSettings => {
                 self.state.settings = crate::components::settings::Settings::default();
@@ -552,7 +565,7 @@ impl App {
                 self.windows
                     .values_mut()
                     .for_each(|w| w.theme = theme.clone());
-                Task::none()
+                self.handle_settings_save_result(self.state.settings.save())
             }
             Message::LanguageChanged(new_language) => {
                 let key = self
@@ -564,8 +577,7 @@ impl App {
                     .language_key
                     .clone();
                 self.state.settings.language_key = key;
-                self.state.settings.save();
-                Task::none()
+                self.handle_settings_save_result(self.state.settings.save())
             }
             Message::OpenSettings => {
                 let title = self.state.current_language().compressr_settings.clone();
@@ -805,6 +817,27 @@ impl App {
             Err(err) => {
                 error!("Failed to open URL '{url}': {err}");
                 self.state.last_error_message = Some(err);
+                Task::done(Message::OpenErrorView)
+            }
+        }
+    }
+
+    /// Routes a [`Settings::save`](crate::components::settings::Settings::save) result to the error view on failure.
+    ///
+    /// # Arguments
+    ///
+    /// * `result` - The result of a settings save attempt.
+    ///
+    /// # Returns
+    ///
+    /// A `Task<Message>` that, when executed, will open the error view if the save failed, or do nothing if it succeeded.
+    /// If the operation fails, the error is logged and stored in the application state for display in the error view.
+    fn handle_settings_save_result(&mut self, result: Result<(), std::io::Error>) -> Task<Message> {
+        match result {
+            Ok(()) => Task::none(),
+            Err(err) => {
+                error!("Failed to save settings: {err}");
+                self.state.last_error_message = Some(err.to_string());
                 Task::done(Message::OpenErrorView)
             }
         }
