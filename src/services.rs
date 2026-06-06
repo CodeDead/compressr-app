@@ -25,7 +25,7 @@ pub fn open_website(url: &str) -> Result<(), String> {
     }
 
     let result = match crate::get_platform() {
-        "windows" => Command::new("cmd").args(["/C", "start", "", url]).spawn(),
+        "windows" => Command::new("explorer").arg(url).spawn(),
         "macos" => Command::new("open").arg(url).spawn(),
         "linux" => Command::new("xdg-open").arg(url).spawn(),
         _ => {
