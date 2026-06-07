@@ -1,5 +1,7 @@
 use crate::components::state::State;
+use crate::components::window::{Window, WindowKind};
 use crate::services;
+use crate::services::folder_scanner::{IMAGE_EXTENSIONS, scan_folder};
 use crate::services::image_service::{
     CompressionParams, CompressionResult, ImageService, OutputFormat,
 };
@@ -18,24 +20,6 @@ use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-
-#[derive(Debug)]
-pub struct Window {
-    title: String,
-    theme: Theme,
-    kind: WindowKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WindowKind {
-    Main,
-    Settings,
-    Update,
-    Error,
-    About,
-    NoUpdate,
-    Results,
-}
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -84,140 +68,11 @@ pub enum Message {
     OpenDonationPage,
 }
 
-const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff", "tif"];
-
-/// Scans a folder to find image files based on a predefined set of valid image extensions.
-///
-/// # Parameters
-/// - `folder`: A `PathBuf` representing the folder to scan.
-/// - `recursive`: A `bool` indicating whether the scan should include subdirectories recursively.
-///
-/// # Returns
-/// - `Ok(Vec<String>)`: A sorted vector of file paths (as strings) pointing to image files found
-///   in the folder (and subdirectories, if `recursive` is `true`).
-/// - `Err(String)`: An error message indicating why the scan could not be completed. This could
-///   include issues such as failure to read a folder, access directory entries, or fetch metadata
-///   for entries.
-///
-/// # Behavior
-/// - If `recursive` is `true`, all subdirectories under the provided `folder` are traversed,
-///   but cycles in symbolic links are avoided using a `HashSet` to track visited directories.
-/// - If `recursive` is `false`, only the top-level entries in the provided `folder` are scanned.
-/// - Image files are determined by matching their extensions (case-insensitive) against
-///   `IMAGE_EXTENSIONS`, a predefined set of valid image extensions.
-/// - If any errors occur while reading folders, entries, or metadata, the function aggregates
-///   those errors into a single error message that is returned via `Err`.
-///
-/// # Notes
-/// - The function assumes that `IMAGE_EXTENSIONS` is defined as a set of valid image file extensions (e.g., `["jpg", "png", "gif"]`).
-/// - File paths are returned as UTF-8 strings via `to_string_lossy()`, which may replace invalid UTF-8 sequences.
-///
-/// # Example Usage
-/// ```rust
-/// use std::path::PathBuf;
-///
-/// const IMAGE_EXTENSIONS: &[&str] = &["jpg", "png", "gif"];
-///
-/// let folder = PathBuf::from("/path/to/folder");
-/// let recursive = true;
-///
-/// match scan_folder(folder, recursive) {
-///     Ok(files) => {
-///         for file in files {
-///             println!("Found image: {}", file);
-///         }
-///     },
-///     Err(error) => {
-///         eprintln!("Error scanning folder: {}", error);
-///     }
-/// }
-/// ```
-///
-/// # Potential Errors
-/// - If a folder cannot be read, an error message is returned for that folder.
-/// - If individual directory entries or their metadata cannot be accessed, those errors are recorded.
-/// - If errors occur but some valid image files are still found, the function prioritizes returning the aggregated error message over partial results.
-fn scan_folder(folder: PathBuf, recursive: bool) -> Result<Vec<String>, String> {
-    let mut entry_errors: Vec<String> = Vec::new();
-    let mut files: Vec<String> = Vec::new();
-
-    if recursive {
-        let mut dirs: Vec<PathBuf> = vec![folder];
-        let mut visited: HashSet<PathBuf> = HashSet::new();
-
-        while let Some(dir) = dirs.pop() {
-            match std::fs::read_dir(&dir) {
-                Err(e) => entry_errors.push(format!("Could not read '{}': {e}", dir.display())),
-                Ok(entries) => {
-                    for entry in entries {
-                        let entry = match entry {
-                            Err(e) => {
-                                entry_errors.push(format!("Directory entry error: {e}"));
-                                continue;
-                            }
-                            Ok(e) => e,
-                        };
-                        let path = entry.path();
-                        let metadata = match path.metadata() {
-                            Ok(m) => m,
-                            Err(e) => {
-                                entry_errors.push(format!(
-                                    "Could not read metadata for '{}': {e}",
-                                    path.display()
-                                ));
-                                continue;
-                            }
-                        };
-
-                        if metadata.is_dir() {
-                            let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
-                            if visited.insert(canonical) {
-                                dirs.push(path);
-                            }
-                        } else if metadata.is_file()
-                            && let Some(ext) = path.extension().and_then(|e| e.to_str())
-                            && IMAGE_EXTENSIONS.contains(&ext.to_lowercase().as_str())
-                        {
-                            files.push(path.to_string_lossy().into_owned());
-                        }
-                    }
-                }
-            }
-        }
-    } else {
-        match std::fs::read_dir(&folder) {
-            Err(e) => {
-                return Err(format!("Could not read folder '{}': {e}", folder.display()));
-            }
-            Ok(entries) => {
-                for entry in entries {
-                    let entry = match entry {
-                        Err(e) => {
-                            entry_errors.push(format!("Directory entry error: {e}"));
-                            continue;
-                        }
-                        Ok(e) => e,
-                    };
-                    let path = entry.path();
-                    if !path.is_file() {
-                        continue;
-                    }
-                    if let Some(ext) = path.extension()
-                        && let Some(ext_str) = ext.to_str()
-                        && IMAGE_EXTENSIONS.contains(&ext_str.to_lowercase().as_str())
-                    {
-                        files.push(path.to_string_lossy().into_owned());
-                    }
-                }
-            }
-        }
-    }
-
-    if !entry_errors.is_empty() {
-        return Err(entry_errors.join("\n"));
-    }
-
-    Ok(files)
+macro_rules! settings_toggle {
+    ($app:expr, $field:ident, $value:expr) => {{
+        $app.state.settings.$field = $value;
+        $app.handle_settings_save_result($app.state.settings.save())
+    }};
 }
 
 pub struct App {
@@ -383,10 +238,15 @@ impl App {
                 Task::none()
             }
             Message::WindowClosed(id) => {
-                let was_main_compressing = self
+                let was_main = self
                     .windows
                     .get(&id)
-                    .is_some_and(|w| w.kind == WindowKind::Main && self.state.is_compressing);
+                    .is_some_and(|w| w.kind == WindowKind::Main);
+                let was_main_compressing = was_main && self.state.is_compressing;
+                let was_error = self
+                    .windows
+                    .get(&id)
+                    .is_some_and(|w| w.kind == WindowKind::Error);
                 self.windows.remove(&id);
                 if was_main_compressing {
                     info!("Main compressing window closed. Exiting.");
@@ -394,7 +254,10 @@ impl App {
                         .compression_aborted
                         .store(true, Ordering::Relaxed);
                 }
-                if self.windows.is_empty() {
+                if was_error {
+                    self.state.last_error_message = None;
+                }
+                if was_main || self.windows.is_empty() {
                     iced::exit()
                 } else {
                     Task::none()
@@ -437,41 +300,10 @@ impl App {
                 self.state.input_path = files;
                 Task::none()
             }
-            Message::InputFolderScanFailed(errors) => {
-                self.state.last_error_message = Some(errors);
-                Task::done(Message::OpenErrorView)
-            }
+            Message::InputFolderScanFailed(errors) => self.error(errors),
             Message::Compress => {
-                if self.state.input_path.is_empty() {
-                    self.state.last_error_message = Some(
-                        "No input files selected. Please select at least one file.".to_string(),
-                    );
-                    return Task::done(Message::OpenErrorView);
-                }
-                if self.state.output_path.is_empty() {
-                    self.state.last_error_message = Some(
-                        "No output directory selected. Please select an output directory."
-                            .to_string(),
-                    );
-                    return Task::done(Message::OpenErrorView);
-                }
-
-                match std::fs::metadata(&self.state.output_path) {
-                    Ok(m) if m.is_dir() => {}
-                    Ok(_) => {
-                        self.state.last_error_message = Some(
-                            "Output path is a file, not a directory. Please select a directory."
-                                .to_string(),
-                        );
-                        return Task::done(Message::OpenErrorView);
-                    }
-                    Err(_) => {
-                        self.state.last_error_message = Some(format!(
-                            "Output directory '{}' does not exist.",
-                            self.state.output_path
-                        ));
-                        return Task::done(Message::OpenErrorView);
-                    }
+                if let Err(msg) = self.validate_compression_inputs() {
+                    return self.error(msg);
                 }
 
                 self.state.is_compressing = true;
@@ -509,7 +341,7 @@ impl App {
                             if seen.insert(candidate.clone()) {
                                 candidate
                             } else {
-                                let path = std::path::PathBuf::from(&candidate);
+                                let path = PathBuf::from(&candidate);
                                 let ext = path
                                     .extension()
                                     .and_then(|e| e.to_str())
@@ -587,40 +419,15 @@ impl App {
                         } else {
                             e
                         };
-                        self.state.last_error_message = Some(msg);
+                        self.set_error(msg);
                     }
                 }
 
                 if self.state.progress_completed == self.state.progress_total {
                     self.state.is_compressing = false;
-
-                    let has_errors = self.state.last_error_message.is_some();
-                    let delete_original = self.state.settings.delete_files_after_compression;
-
-                    if has_errors {
-                        return Task::done(Message::OpenErrorView);
-                    }
-
-                    if delete_original {
-                        for file in &self.state.input_path {
-                            if let Err(e) = std::fs::remove_file(file) {
-                                error!("Failed to delete original file '{file}': {e}");
-                                self.state.last_error_message =
-                                    Some(format!("Failed to delete original file '{file}': {e}"));
-                                return Task::done(Message::OpenErrorView);
-                            }
-                        }
-                    }
-
-                    if self.state.settings.show_compression_results {
-                        let title = self.state.current_language().compressr_results.clone();
-                        self.open_window(WindowKind::Results, title, (600.0, 400.0))
-                    } else {
-                        Task::none()
-                    }
-                } else {
-                    Task::none()
+                    return self.on_compression_complete();
                 }
+                Task::none()
             }
             Message::FormatSelected(f) => {
                 self.state.format = f;
@@ -646,27 +453,16 @@ impl App {
                 Task::none()
             }
             Message::Noop => Task::none(),
-
-            // ── Settings ──────────────────────────────────────────────────────
-            Message::AutoUpdateToggled(v) => {
-                self.state.settings.auto_update = v;
-                self.handle_settings_save_result(self.state.settings.save())
-            }
+            Message::AutoUpdateToggled(v) => settings_toggle!(self, auto_update, v),
             Message::DeleteFilesAfterCompressionToggled(v) => {
-                self.state.settings.delete_files_after_compression = v;
-                self.handle_settings_save_result(self.state.settings.save())
+                settings_toggle!(self, delete_files_after_compression, v)
             }
-            Message::PreserveExifToggled(v) => {
-                self.state.settings.preserve_exif = v;
-                self.handle_settings_save_result(self.state.settings.save())
-            }
+            Message::PreserveExifToggled(v) => settings_toggle!(self, preserve_exif, v),
             Message::ShowCompressionResultsToggled(v) => {
-                self.state.settings.show_compression_results = v;
-                self.handle_settings_save_result(self.state.settings.save())
+                settings_toggle!(self, show_compression_results, v)
             }
             Message::RecursiveFolderScanToggled(v) => {
-                self.state.settings.recursive_folder_scan = v;
-                self.handle_settings_save_result(self.state.settings.save())
+                settings_toggle!(self, recursive_folder_scan, v)
             }
             Message::ThemeChanged(theme) => {
                 self.state.settings.theme = theme.clone();
@@ -714,7 +510,11 @@ impl App {
                 self.open_window(WindowKind::Error, title, (400.0, 210.0))
             }
             Message::CloseUpdateView => self.close_window(WindowKind::Update),
-            Message::CloseErrorView => self.close_window(WindowKind::Error),
+            Message::CloseErrorView => {
+                // Reset the error message to none
+                self.state.last_error_message = None;
+                self.close_window(WindowKind::Error)
+            }
             Message::CloseNoUpdateView => self.close_window(WindowKind::NoUpdate),
             Message::CloseResultsView => self.close_window(WindowKind::Results),
             Message::CheckForUpdates(show_no_update_view) => {
@@ -749,8 +549,7 @@ impl App {
                 }
                 Err(err) => {
                     error!("Failed to check for updates: {err}");
-                    self.state.last_error_message = Some(err);
-                    Task::done(Message::OpenErrorView)
+                    self.error(err)
                 }
             },
             Message::OpenUpdateInformation => {
@@ -772,10 +571,7 @@ impl App {
                         info!("Opened download URL; exiting");
                         iced::exit()
                     }
-                    Err(err) => {
-                        self.state.last_error_message = Some(err);
-                        Task::done(Message::OpenErrorView)
-                    }
+                    Err(err) => self.error(err),
                 }
             }
             Message::CopyError => match self.state.last_error_message.clone() {
@@ -940,9 +736,85 @@ impl App {
             }
             Err(err) => {
                 error!("Failed to open URL '{url}': {err}");
-                self.state.last_error_message = Some(err);
-                Task::done(Message::OpenErrorView)
+                self.error(err)
             }
+        }
+    }
+
+    /// Stores a one-shot error message without opening the error view.
+    ///
+    /// # Arguments
+    ///
+    /// - `msg` - The error message to store.
+    fn set_error(&mut self, msg: impl Into<String>) {
+        self.state.last_error_message = Some(msg.into());
+    }
+
+    /// Stores an error message and returns a task that opens the error view.
+    ///
+    /// # Arguments
+    ///
+    /// - `msg` - The error message to store.
+    ///
+    /// # Returns
+    ///
+    /// A task that opens the error view.
+    fn error(&mut self, msg: impl Into<String>) -> Task<Message> {
+        self.set_error(msg);
+        Task::done(Message::OpenErrorView)
+    }
+
+    /// Validates that compression inputs are present and the output directory exists.
+    ///
+    /// # Returns
+    ///
+    /// A result indicating whether the inputs are valid or an error message.
+    fn validate_compression_inputs(&self) -> Result<(), String> {
+        if self.state.input_path.is_empty() {
+            return Err("No input files selected. Please select at least one file.".to_string());
+        }
+        if self.state.output_path.is_empty() {
+            return Err(
+                "No output directory selected. Please select an output directory.".to_string(),
+            );
+        }
+        match std::fs::metadata(&self.state.output_path) {
+            Ok(m) if m.is_dir() => Ok(()),
+            Ok(_) => Err(
+                "Output path is a file, not a directory. Please select a directory.".to_string(),
+            ),
+            Err(_) => Err(format!(
+                "Output directory '{}' does not exist.",
+                self.state.output_path
+            )),
+        }
+    }
+
+    /// Handles the post-compression completion: error display, original file deletion, and results view.
+    ///
+    /// # Returns
+    ///
+    /// A task that manages the post-compression actions.
+    fn on_compression_complete(&mut self) -> Task<Message> {
+        let has_errors = self.state.last_error_message.is_some();
+        if has_errors {
+            return Task::done(Message::OpenErrorView);
+        }
+
+        if self.state.settings.delete_files_after_compression {
+            for file in &self.state.input_path {
+                if let Err(e) = std::fs::remove_file(file) {
+                    error!("Failed to delete original file '{file}': {e}");
+                    return self.error(format!("Failed to delete original file '{file}': {e}"));
+                }
+            }
+        }
+
+        if self.state.settings.show_compression_results {
+            let title = self.state.current_language().compressr_results.clone();
+            self.open_window(WindowKind::Results, title, (600.0, 400.0))
+        } else {
+            Task::none()
         }
     }
 
@@ -961,8 +833,7 @@ impl App {
             Ok(()) => Task::none(),
             Err(err) => {
                 error!("Failed to save settings: {err}");
-                self.state.last_error_message = Some(err.to_string());
-                Task::done(Message::OpenErrorView)
+                self.error(err.to_string())
             }
         }
     }
@@ -982,7 +853,7 @@ impl App {
     /// which can be used by the application to determine how to respond to the update check results (e.g., whether to display a "No Update" view).
     fn spawn_update_check(&self, show_no_update_view: bool) -> Task<Message> {
         let semver = env!("CARGO_PKG_VERSION").to_string();
-        let platform = crate::get_platform().to_string();
+        let platform = std::env::consts::OS.to_string();
         let arch = Self::arch().to_string();
         let svc = self.update_service.clone();
         Task::perform(
@@ -992,22 +863,5 @@ impl App {
                 show_no_update_view,
             },
         )
-    }
-}
-
-impl Window {
-    /// Creates a new `Window` instance with the specified title, kind, and theme.
-    ///
-    /// # Arguments
-    ///
-    /// * `title` - A `String` representing the title of the window, which will be displayed in the window's title bar.
-    /// * `kind` - A `WindowKind` enum value that categorizes the type of window (e.g., Main, Settings, Update, Error, About, NoUpdate, Results). This is used to manage different windows within the application and determine their behavior and content.
-    /// * `theme` - A `Theme` object that specifies the visual theme of the window (e.g., light, dark, or custom). This allows the window to be styled according to the user's preferences or the application's design.
-    ///
-    /// # Returns
-    ///
-    /// A new instance of the `Window` struct, initialized with the provided title, kind, and theme.
-    fn new(title: String, kind: WindowKind, theme: Theme) -> Self {
-        Self { title, theme, kind }
     }
 }

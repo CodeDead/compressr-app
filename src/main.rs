@@ -25,21 +25,3 @@ fn main() -> iced::Result {
         .scale_factor(App::scale_factor)
         .run()
 }
-
-/// Determines the target platform for which the code is being compiled.
-///
-/// # Returns
-///
-/// A string slice (`&'static str`) indicating the platform:
-/// - `"windows"`: If the target operating system is Windows.
-/// - `"macos"`: If the target operating system is macOS.
-/// - `"linux"`: If the target operating system is Linux or another Unix-like system.
-pub(crate) fn get_platform() -> &'static str {
-    if cfg!(target_os = "windows") {
-        "windows"
-    } else if cfg!(target_os = "macos") {
-        "macos"
-    } else {
-        "linux"
-    }
-}
