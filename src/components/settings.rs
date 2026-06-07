@@ -87,7 +87,7 @@ impl Default for Settings {
             language_key: "en_US".to_string(),
             preserve_exif: false,
             show_compression_results: true,
-            recursive_folder_scan: true,
+            recursive_folder_scan: false,
         }
     }
 }

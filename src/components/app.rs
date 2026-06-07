@@ -238,10 +238,11 @@ impl App {
                 Task::none()
             }
             Message::WindowClosed(id) => {
-                let was_main_compressing = self
+                let was_main = self
                     .windows
                     .get(&id)
-                    .is_some_and(|w| w.kind == WindowKind::Main && self.state.is_compressing);
+                    .is_some_and(|w| w.kind == WindowKind::Main);
+                let was_main_compressing = was_main && self.state.is_compressing;
                 let was_error = self
                     .windows
                     .get(&id)
@@ -256,7 +257,7 @@ impl App {
                 if was_error {
                     self.state.last_error_message = None;
                 }
-                if self.windows.is_empty() {
+                if was_main || self.windows.is_empty() {
                     iced::exit()
                 } else {
                     Task::none()
