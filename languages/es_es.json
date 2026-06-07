@@ -25,6 +25,7 @@
   "deleteOriginalFilesAfterCompression": "Eliminar archivos originales tras comprimir",
   "preserveExifData": "Conservar datos EXIF",
   "showCompressionResults": "Mostrar resultados de compresión",
+  "recursiveFolderScan": "Escaneo recursivo de subdirectorios",
   "theme": "Tema:",
   "selectTheme": "Seleccionar tema",
   "language": "Idioma:",

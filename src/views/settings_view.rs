@@ -47,6 +47,11 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 .on_toggle(Message::ShowCompressionResultsToggled)
         ],
         row![
+            checkbox(state.settings.recursive_folder_scan)
+                .label(current_language.recursive_folder_scan.as_str())
+                .on_toggle(Message::RecursiveFolderScanToggled)
+        ],
+        row![
             text(current_language.theme.as_str()).width(Length::FillPortion(1)),
             pick_list(
                 Theme::ALL,

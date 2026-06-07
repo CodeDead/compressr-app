@@ -6,16 +6,16 @@ use iced::{Element, Length, color};
 
 /// Formats a byte count as a human-readable string (B, KiB, MiB, GiB).
 fn format_size(bytes: u64) -> String {
-    const KB: u64 = 1024;
-    const MB: u64 = 1024 * KB;
-    const GB: u64 = 1024 * MB;
+    const KI_B: u64 = 1024;
+    const MI_B: u64 = 1024 * KI_B;
+    const GI_B: u64 = 1024 * MI_B;
 
-    if bytes >= GB {
-        format!("{:.2} GiB", bytes as f64 / GB as f64)
-    } else if bytes >= MB {
-        format!("{:.2} MiB", bytes as f64 / MB as f64)
-    } else if bytes >= KB {
-        format!("{:.2} KiB", bytes as f64 / KB as f64)
+    if bytes >= GI_B {
+        format!("{:.2} GiB", bytes as f64 / GI_B as f64)
+    } else if bytes >= MI_B {
+        format!("{:.2} MiB", bytes as f64 / MI_B as f64)
+    } else if bytes >= KI_B {
+        format!("{:.2} KiB", bytes as f64 / KI_B as f64)
     } else {
         format!("{} B", bytes)
     }

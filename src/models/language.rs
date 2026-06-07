@@ -41,6 +41,8 @@ pub struct Language {
     pub preserve_exif_data: String,
     #[serde(rename = "showCompressionResults")]
     pub show_compression_results: String,
+    #[serde(rename = "recursiveFolderScan")]
+    pub recursive_folder_scan: String,
     pub theme: String,
     #[serde(rename = "selectTheme")]
     pub select_theme: String,
