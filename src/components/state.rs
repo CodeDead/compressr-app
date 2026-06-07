@@ -127,6 +127,10 @@ impl State {
         self.languages
             .iter()
             .find(|l| l.language_key == self.settings.language_key)
-            .unwrap_or(self.languages.first().unwrap())
+            .unwrap_or(
+                self.languages
+                    .first()
+                    .expect("At least one language should be defined!"),
+            )
     }
 }

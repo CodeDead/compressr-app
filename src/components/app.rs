@@ -14,7 +14,8 @@ use iced::window::settings::PlatformSpecific;
 use iced::{Element, Size, Subscription, Task, Theme, clipboard, window};
 use log::{error, info};
 use rfd::FileDialog;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
@@ -49,6 +50,8 @@ pub enum Message {
     Compress,
     SingleFileCompressed(Result<CompressionResult, String>),
     CloseResultsView,
+    InputFolderScanCompleted(Vec<String>),
+    InputFolderScanFailed(String),
     FormatSelected(OutputFormat),
     QualityChanged(u8),
     WidthChanged(i32),
@@ -59,6 +62,7 @@ pub enum Message {
     DeleteFilesAfterCompressionToggled(bool),
     PreserveExifToggled(bool),
     ShowCompressionResultsToggled(bool),
+    RecursiveFolderScanToggled(bool),
     ThemeChanged(Theme),
     ResetSettings,
     LanguageChanged(String),
@@ -78,6 +82,142 @@ pub enum Message {
     CopyError,
     OpenCodeDeadPage,
     OpenDonationPage,
+}
+
+const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff", "tif"];
+
+/// Scans a folder to find image files based on a predefined set of valid image extensions.
+///
+/// # Parameters
+/// - `folder`: A `PathBuf` representing the folder to scan.
+/// - `recursive`: A `bool` indicating whether the scan should include subdirectories recursively.
+///
+/// # Returns
+/// - `Ok(Vec<String>)`: A sorted vector of file paths (as strings) pointing to image files found
+///   in the folder (and subdirectories, if `recursive` is `true`).
+/// - `Err(String)`: An error message indicating why the scan could not be completed. This could
+///   include issues such as failure to read a folder, access directory entries, or fetch metadata
+///   for entries.
+///
+/// # Behavior
+/// - If `recursive` is `true`, all subdirectories under the provided `folder` are traversed,
+///   but cycles in symbolic links are avoided using a `HashSet` to track visited directories.
+/// - If `recursive` is `false`, only the top-level entries in the provided `folder` are scanned.
+/// - Image files are determined by matching their extensions (case-insensitive) against
+///   `IMAGE_EXTENSIONS`, a predefined set of valid image extensions.
+/// - If any errors occur while reading folders, entries, or metadata, the function aggregates
+///   those errors into a single error message that is returned via `Err`.
+///
+/// # Notes
+/// - The function assumes that `IMAGE_EXTENSIONS` is defined as a set of valid image file extensions (e.g., `["jpg", "png", "gif"]`).
+/// - File paths are returned as UTF-8 strings via `to_string_lossy()`, which may replace invalid UTF-8 sequences.
+///
+/// # Example Usage
+/// ```rust
+/// use std::path::PathBuf;
+///
+/// const IMAGE_EXTENSIONS: &[&str] = &["jpg", "png", "gif"];
+///
+/// let folder = PathBuf::from("/path/to/folder");
+/// let recursive = true;
+///
+/// match scan_folder(folder, recursive) {
+///     Ok(files) => {
+///         for file in files {
+///             println!("Found image: {}", file);
+///         }
+///     },
+///     Err(error) => {
+///         eprintln!("Error scanning folder: {}", error);
+///     }
+/// }
+/// ```
+///
+/// # Potential Errors
+/// - If a folder cannot be read, an error message is returned for that folder.
+/// - If individual directory entries or their metadata cannot be accessed, those errors are recorded.
+/// - If errors occur but some valid image files are still found, the function prioritizes returning the aggregated error message over partial results.
+fn scan_folder(folder: PathBuf, recursive: bool) -> Result<Vec<String>, String> {
+    let mut entry_errors: Vec<String> = Vec::new();
+    let mut files: Vec<String> = Vec::new();
+
+    if recursive {
+        let mut dirs: Vec<PathBuf> = vec![folder];
+        let mut visited: HashSet<PathBuf> = HashSet::new();
+
+        while let Some(dir) = dirs.pop() {
+            match std::fs::read_dir(&dir) {
+                Err(e) => entry_errors.push(format!("Could not read '{}': {e}", dir.display())),
+                Ok(entries) => {
+                    for entry in entries {
+                        let entry = match entry {
+                            Err(e) => {
+                                entry_errors.push(format!("Directory entry error: {e}"));
+                                continue;
+                            }
+                            Ok(e) => e,
+                        };
+                        let path = entry.path();
+                        let metadata = match path.metadata() {
+                            Ok(m) => m,
+                            Err(e) => {
+                                entry_errors.push(format!(
+                                    "Could not read metadata for '{}': {e}",
+                                    path.display()
+                                ));
+                                continue;
+                            }
+                        };
+
+                        if metadata.is_dir() {
+                            let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
+                            if visited.insert(canonical) {
+                                dirs.push(path);
+                            }
+                        } else if metadata.is_file()
+                            && let Some(ext) = path.extension().and_then(|e| e.to_str())
+                            && IMAGE_EXTENSIONS.contains(&ext.to_lowercase().as_str())
+                        {
+                            files.push(path.to_string_lossy().into_owned());
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        match std::fs::read_dir(&folder) {
+            Err(e) => {
+                return Err(format!("Could not read folder '{}': {e}", folder.display()));
+            }
+            Ok(entries) => {
+                for entry in entries {
+                    let entry = match entry {
+                        Err(e) => {
+                            entry_errors.push(format!("Directory entry error: {e}"));
+                            continue;
+                        }
+                        Ok(e) => e,
+                    };
+                    let path = entry.path();
+                    if !path.is_file() {
+                        continue;
+                    }
+                    if let Some(ext) = path.extension()
+                        && let Some(ext_str) = ext.to_str()
+                        && IMAGE_EXTENSIONS.contains(&ext_str.to_lowercase().as_str())
+                    {
+                        files.push(path.to_string_lossy().into_owned());
+                    }
+                }
+            }
+        }
+    }
+
+    if !entry_errors.is_empty() {
+        return Err(entry_errors.join("\n"));
+    }
+
+    Ok(files)
 }
 
 pub struct App {
@@ -260,15 +400,10 @@ impl App {
                     Task::none()
                 }
             }
-
-            // ── Input selection ───────────────────────────────────────────────
             Message::SelectInput => {
                 self.state.show_input_dropdown = false;
                 if let Some(paths) = FileDialog::new()
-                    .add_filter(
-                        "Image files",
-                        &["png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff", "tif"],
-                    )
+                    .add_filter("Image files", IMAGE_EXTENSIONS)
                     .pick_files()
                 {
                     self.state.input_path = paths.iter().map(|p| p.display().to_string()).collect();
@@ -284,55 +419,27 @@ impl App {
             Message::SelectInputFolder => {
                 self.state.show_input_dropdown = false;
                 if let Some(folder) = FileDialog::new().pick_folder() {
-                    const IMAGE_EXTENSIONS: &[&str] =
-                        &["png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff", "tif"];
-                    match std::fs::read_dir(&folder) {
-                        Err(e) => {
-                            self.state.last_error_message =
-                                Some(format!("Could not read folder '{}': {e}", folder.display()));
-                            return Task::done(Message::OpenErrorView);
-                        }
-                        Ok(entries) => {
-                            let mut entry_errors: Vec<String> = Vec::new();
-                            let mut files: Vec<String> = entries
-                                .filter_map(|entry| match entry {
-                                    Err(e) => {
-                                        entry_errors.push(format!("Directory entry error: {e}"));
-                                        None
-                                    }
-                                    Ok(entry) => {
-                                        let path = entry.path();
-                                        if !path.is_file() {
-                                            return None;
-                                        }
-                                        let ext =
-                                            path.extension()?.to_string_lossy().to_lowercase();
-                                        IMAGE_EXTENSIONS
-                                            .contains(&ext.as_str())
-                                            .then(|| path.display().to_string())
-                                    }
-                                })
-                                .collect();
-
-                            if !entry_errors.is_empty() {
-                                self.state.last_error_message = Some(entry_errors.join("\n"));
-                                return Task::done(Message::OpenErrorView);
-                            }
-
-                            files.sort();
-                            self.state.input_path = files;
-                        }
-                    }
+                    let recursive = self.state.settings.recursive_folder_scan;
+                    return Task::perform(
+                        tokio::task::spawn_blocking(move || scan_folder(folder, recursive)),
+                        |result| match result {
+                            Ok(Ok(files)) => Message::InputFolderScanCompleted(files),
+                            Ok(Err(e)) => Message::InputFolderScanFailed(e),
+                            Err(e) => Message::InputFolderScanFailed(format!(
+                                "Folder scan task failed: {e}"
+                            )),
+                        },
+                    );
                 }
                 Task::none()
             }
-            Message::ToggleInputDropdown => {
-                self.state.show_input_dropdown = !self.state.show_input_dropdown;
+            Message::InputFolderScanCompleted(files) => {
+                self.state.input_path = files;
                 Task::none()
             }
-            Message::DismissInputDropdown => {
-                self.state.show_input_dropdown = false;
-                Task::none()
+            Message::InputFolderScanFailed(errors) => {
+                self.state.last_error_message = Some(errors);
+                Task::done(Message::OpenErrorView)
             }
             Message::Compress => {
                 if self.state.input_path.is_empty() {
@@ -348,6 +455,7 @@ impl App {
                     );
                     return Task::done(Message::OpenErrorView);
                 }
+
                 match std::fs::metadata(&self.state.output_path) {
                     Ok(m) if m.is_dir() => {}
                     Ok(_) => {
@@ -365,6 +473,7 @@ impl App {
                         return Task::done(Message::OpenErrorView);
                     }
                 }
+
                 self.state.is_compressing = true;
                 self.state
                     .compression_aborted
@@ -392,18 +501,14 @@ impl App {
 
                 // Resolve output paths, disambiguating collisions
                 let resolved_paths: Vec<String> = {
-                    use std::collections::HashSet;
                     let mut seen: HashSet<String> = HashSet::new();
                     input
                         .iter()
                         .map(|file| {
                             let candidate = image_service.resolve_output_path(file, &params);
                             if seen.insert(candidate.clone()) {
-                                // First time this path is used – keep it as-is.
                                 candidate
                             } else {
-                                // Collision: find the lowest suffix N ≥ 2 whose
-                                // resulting name is not already allocated.
                                 let path = std::path::PathBuf::from(&candidate);
                                 let ext = path
                                     .extension()
@@ -459,6 +564,14 @@ impl App {
                     .collect();
 
                 Task::batch(tasks)
+            }
+            Message::ToggleInputDropdown => {
+                self.state.show_input_dropdown = !self.state.show_input_dropdown;
+                Task::none()
+            }
+            Message::DismissInputDropdown => {
+                self.state.show_input_dropdown = false;
+                Task::none()
             }
             Message::SingleFileCompressed(result) => {
                 if self.state.compression_aborted.load(Ordering::Relaxed) {
@@ -551,6 +664,10 @@ impl App {
                 self.state.settings.show_compression_results = v;
                 self.handle_settings_save_result(self.state.settings.save())
             }
+            Message::RecursiveFolderScanToggled(v) => {
+                self.state.settings.recursive_folder_scan = v;
+                self.handle_settings_save_result(self.state.settings.save())
+            }
             Message::ThemeChanged(theme) => {
                 self.state.settings.theme = theme.clone();
                 self.windows
@@ -573,7 +690,12 @@ impl App {
                     .languages
                     .iter()
                     .find(|l| l.language_name == new_language)
-                    .unwrap_or(self.state.languages.first().unwrap())
+                    .unwrap_or(
+                        self.state
+                            .languages
+                            .first()
+                            .expect("At least one language should be defined!"),
+                    )
                     .language_key
                     .clone();
                 self.state.settings.language_key = key;
@@ -581,7 +703,7 @@ impl App {
             }
             Message::OpenSettings => {
                 let title = self.state.current_language().compressr_settings.clone();
-                self.open_window(WindowKind::Settings, title, (500.0, 360.0))
+                self.open_window(WindowKind::Settings, title, (500.0, 400.0))
             }
             Message::OpenAbout => {
                 let title = self.state.current_language().compressr_about.clone();
@@ -673,7 +795,9 @@ impl App {
     /// If the icon fails to load, the function will panic with an error message.
     fn load_icon() -> window::icon::Icon {
         let bytes = include_bytes!("../../resources/compressr.png");
-        let img = image::load_from_memory(bytes).unwrap().into_rgba8();
+        let img = image::load_from_memory(bytes)
+            .expect("Failed to load application icon from embedded PNG bytes")
+            .into_rgba8();
         let (w, h) = (img.width(), img.height());
         window::icon::from_rgba(img.into_raw(), w, h).expect("Failed to load window icon")
     }

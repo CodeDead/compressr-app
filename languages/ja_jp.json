@@ -25,6 +25,7 @@
   "deleteOriginalFilesAfterCompression": "圧縮後に元のファイルを削除する",
   "preserveExifData": "EXIFデータを保持する",
   "showCompressionResults": "圧縮結果を表示する",
+  "recursiveFolderScan": "サブディレクトリを再帰的にスキャン",
   "theme": "テーマ:",
   "selectTheme": "テーマを選択",
   "language": "言語:",

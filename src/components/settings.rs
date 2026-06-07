@@ -67,6 +67,7 @@ pub struct Settings {
     pub language_key: String,
     pub preserve_exif: bool,
     pub show_compression_results: bool,
+    pub recursive_folder_scan: bool,
 }
 
 impl Default for Settings {
@@ -86,6 +87,7 @@ impl Default for Settings {
             language_key: "en_US".to_string(),
             preserve_exif: false,
             show_compression_results: true,
+            recursive_folder_scan: true,
         }
     }
 }

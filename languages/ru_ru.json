@@ -25,6 +25,7 @@
   "deleteOriginalFilesAfterCompression": "Удалить оригинальные файлы после сжатия",
   "preserveExifData": "Сохранять данные EXIF",
   "showCompressionResults": "Показывать результаты сжатия",
+  "recursiveFolderScan": "Рекурсивно сканировать подпапки",
   "theme": "Тема:",
   "selectTheme": "Выберите тему",
   "language": "Язык:",

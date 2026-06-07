@@ -25,6 +25,7 @@
   "deleteOriginalFilesAfterCompression": "压缩后删除原始文件",
   "preserveExifData": "保留 EXIF 数据",
   "showCompressionResults": "显示压缩结果",
+  "recursiveFolderScan": "递归扫描子目录",
   "theme": "主题：",
   "selectTheme": "选择主题",
   "language": "语言：",
