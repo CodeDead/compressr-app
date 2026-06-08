@@ -45,3 +45,6 @@ jobs:
 
       - name: Test code
         run: cargo test --verbose --all
+
+      - name: Clippy
+        run: cargo clippy --verbose --all
