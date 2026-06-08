@@ -28,6 +28,11 @@ pub fn view(state: &State) -> Element<'_, Message> {
                 .on_toggle(Message::AutoUpdateToggled)
         ],
         row![
+            checkbox(state.settings.show_compression_results)
+                .label(current_language.show_compression_results.as_str())
+                .on_toggle(Message::ShowCompressionResultsToggled)
+        ],
+        row![
             checkbox(state.settings.delete_files_after_compression)
                 .label(
                     current_language
@@ -40,11 +45,6 @@ pub fn view(state: &State) -> Element<'_, Message> {
             checkbox(state.settings.preserve_exif)
                 .label(current_language.preserve_exif_data.as_str())
                 .on_toggle(Message::PreserveExifToggled)
-        ],
-        row![
-            checkbox(state.settings.show_compression_results)
-                .label(current_language.show_compression_results.as_str())
-                .on_toggle(Message::ShowCompressionResultsToggled)
         ],
         row![
             checkbox(state.settings.recursive_folder_scan)

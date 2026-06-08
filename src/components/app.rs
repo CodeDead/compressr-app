@@ -1,23 +1,16 @@
 use crate::components::state::State;
-use crate::components::window::{Window, WindowKind};
+use crate::components::window::{Window, WindowKind, load_app_icon, make_window_settings};
 use crate::services;
 use crate::services::folder_scanner::{IMAGE_EXTENSIONS, scan_folder};
 use crate::services::image_service::{
     CompressionParams, CompressionResult, ImageService, OutputFormat,
 };
 use crate::services::update_service::{UpdateInfo, UpdateService};
-use crate::views::{
-    about_view, error_view, main_view, no_update_view, results_view, settings_view, update_view,
-};
 use iced::widget::space;
-use iced::window::Position;
-#[cfg(target_os = "linux")]
-use iced::window::settings::PlatformSpecific;
-use iced::{Element, Size, Subscription, Task, Theme, clipboard, window};
+use iced::{Element, Subscription, Task, Theme, clipboard, window};
 use log::{error, info};
 use rfd::FileDialog;
-use std::collections::{BTreeMap, HashSet};
-use std::path::PathBuf;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
@@ -92,8 +85,8 @@ impl App {
     pub fn new() -> (Self, Task<Message>) {
         info!("Initializing new App");
 
-        let icon = Self::load_icon();
-        let settings = Self::make_window_settings((650.0, 385.0), icon.clone());
+        let icon = load_app_icon();
+        let settings = make_window_settings(WindowKind::Main.default_size(), icon.clone());
         let (_, open) = window::open(settings);
 
         let (loaded_settings, settings_loaded_from_file) =
@@ -182,15 +175,7 @@ impl App {
     /// An `Element` representing the view for the specified window, or an empty space if no such window exists.
     pub fn view(&self, window_id: window::Id) -> Element<'_, Message> {
         if let Some(window) = self.windows.get(&window_id) {
-            match window.kind {
-                WindowKind::Main => main_view::view(&self.state),
-                WindowKind::Settings => settings_view::view(&self.state),
-                WindowKind::Update => update_view::view(&self.state),
-                WindowKind::Error => error_view::view(&self.state),
-                WindowKind::About => about_view::view(&self.state),
-                WindowKind::NoUpdate => no_update_view::view(&self.state),
-                WindowKind::Results => results_view::view(&self.state),
-            }
+            window.kind.view(&self.state)
         } else {
             space().into()
         }
@@ -214,7 +199,7 @@ impl App {
                 self.windows.insert(
                     id,
                     Window::new(
-                        "Compressr".to_string(),
+                        WindowKind::Main.title(self.state.current_language()),
                         WindowKind::Main,
                         self.current_theme(),
                     ),
@@ -223,8 +208,7 @@ impl App {
                 // Show any pending startup error now that the main window exists
                 // for the error window to position relative to.
                 if self.state.last_error_message.is_some() {
-                    let title = self.state.current_language().compressr_error.clone();
-                    return self.open_window(WindowKind::Error, title, (400.0, 210.0));
+                    return self.open_window(WindowKind::Error);
                 }
 
                 if self.state.settings.auto_update {
@@ -315,10 +299,8 @@ impl App {
                 self.state.last_error_message = None;
 
                 let input = self.state.input_path.clone();
-                let shared_output: Arc<str> = Arc::from(self.state.output_path.as_str());
-                let image_service = self.image_service.clone();
                 let params = CompressionParams {
-                    output_path: Arc::clone(&shared_output),
+                    output_path: Arc::from(self.state.output_path.as_str()),
                     is_output_a_directory: true,
                     scale: self.state.scale,
                     width: self.state.width,
@@ -331,71 +313,7 @@ impl App {
                 self.state.progress_total = input.len();
                 self.state.progress_completed = 0;
 
-                // Resolve output paths, disambiguating collisions
-                let resolved_paths: Vec<String> = {
-                    let mut seen: HashSet<String> = HashSet::new();
-                    input
-                        .iter()
-                        .map(|file| {
-                            let candidate = image_service.resolve_output_path(file, &params);
-                            if seen.insert(candidate.clone()) {
-                                candidate
-                            } else {
-                                let path = PathBuf::from(&candidate);
-                                let ext = path
-                                    .extension()
-                                    .and_then(|e| e.to_str())
-                                    .unwrap_or_default()
-                                    .to_owned();
-                                let stem = path
-                                    .file_stem()
-                                    .and_then(|s| s.to_str())
-                                    .unwrap_or("output")
-                                    .to_owned();
-                                let mut n: u32 = 2;
-                                loop {
-                                    let new_name = if ext.is_empty() {
-                                        format!("{}_{}", stem, n)
-                                    } else {
-                                        format!("{}_{}.{}", stem, n, ext)
-                                    };
-                                    let disambiguated = path
-                                        .with_file_name(&new_name)
-                                        .to_string_lossy()
-                                        .into_owned();
-                                    if seen.insert(disambiguated.clone()) {
-                                        break disambiguated;
-                                    }
-                                    n += 1;
-                                }
-                            }
-                        })
-                        .collect()
-                };
-
-                let tasks: Vec<Task<Message>> = input
-                    .into_iter()
-                    .zip(resolved_paths)
-                    .map(|(file, out_path)| {
-                        let svc = image_service.clone();
-                        let mut p = params.clone();
-                        let cancelled = Arc::clone(&self.state.compression_aborted);
-                        p.output_path_override = Some(out_path);
-                        Task::perform(
-                            tokio::task::spawn_blocking(move || {
-                                svc.compress_single(file, &p, cancelled)
-                            }),
-                            |result| match result {
-                                Ok(r) => Message::SingleFileCompressed(r),
-                                Err(e) => Message::SingleFileCompressed(Err(format!(
-                                    "Compression task failed: {e}"
-                                ))),
-                            },
-                        )
-                    })
-                    .collect();
-
-                Task::batch(tasks)
+                self.spawn_compression_tasks(input, params)
             }
             Message::ToggleInputDropdown => {
                 self.state.show_input_dropdown = !self.state.show_input_dropdown;
@@ -497,18 +415,9 @@ impl App {
                 self.state.settings.language_key = key;
                 self.handle_settings_save_result(self.state.settings.save())
             }
-            Message::OpenSettings => {
-                let title = self.state.current_language().compressr_settings.clone();
-                self.open_window(WindowKind::Settings, title, (500.0, 400.0))
-            }
-            Message::OpenAbout => {
-                let title = self.state.current_language().compressr_about.clone();
-                self.open_window(WindowKind::About, title, (450.0, 270.0))
-            }
-            Message::OpenErrorView => {
-                let title = self.state.current_language().compressr_error.clone();
-                self.open_window(WindowKind::Error, title, (400.0, 210.0))
-            }
+            Message::OpenSettings => self.open_window(WindowKind::Settings),
+            Message::OpenAbout => self.open_window(WindowKind::About),
+            Message::OpenErrorView => self.open_window(WindowKind::Error),
             Message::CloseUpdateView => self.close_window(WindowKind::Update),
             Message::CloseErrorView => {
                 // Reset the error message to none
@@ -531,8 +440,7 @@ impl App {
                     self.state.update_download_url = Some(update_info.download_url);
                     self.state.update_info_url = update_info.info_url;
 
-                    let title = self.state.current_language().compressr_update.clone();
-                    self.open_window(WindowKind::Update, title, (400.0, 190.0))
+                    self.open_window(WindowKind::Update)
                 }
                 Ok(None) => {
                     info!("No updates available");
@@ -544,8 +452,7 @@ impl App {
                     if !show_no_update_view {
                         return Task::none();
                     }
-                    let title = self.state.current_language().compressr_no_update.clone();
-                    self.open_window(WindowKind::NoUpdate, title, (400.0, 180.0))
+                    self.open_window(WindowKind::NoUpdate)
                 }
                 Err(err) => {
                     error!("Failed to check for updates: {err}");
@@ -583,67 +490,6 @@ impl App {
         }
     }
 
-    /// Loads the application icon from embedded PNG bytes.
-    ///
-    /// # Returns
-    ///
-    /// An `Icon` object representing the application icon, ready to be used in window settings.
-    /// If the icon fails to load, the function will panic with an error message.
-    fn load_icon() -> window::icon::Icon {
-        let bytes = include_bytes!("../../resources/compressr.png");
-        let img = image::load_from_memory(bytes)
-            .expect("Failed to load application icon from embedded PNG bytes")
-            .into_rgba8();
-        let (w, h) = (img.width(), img.height());
-        window::icon::from_rgba(img.into_raw(), w, h).expect("Failed to load window icon")
-    }
-
-    /// Returns `"x64"`, `"aarch64"`, or `"unknown"` based on compile-time target.
-    ///
-    /// # Returns
-    ///
-    /// A string slice representing the architecture of the target platform, used for update checks and reporting.
-    /// This function uses compile-time configuration to determine the architecture and returns a corresponding string.
-    fn arch() -> &'static str {
-        if cfg!(target_arch = "x86_64") {
-            "x64"
-        } else if cfg!(target_arch = "aarch64") {
-            "aarch64"
-        } else {
-            "unknown"
-        }
-    }
-
-    /// Builds [`window::Settings`] for the given pixel size and icon.
-    ///
-    /// # Arguments
-    ///
-    /// * `size` - A tuple containing the width and height of the window in pixels.
-    /// * `icon` - An `Icon` object to be used as the window's icon.
-    ///
-    /// # Returns
-    ///
-    /// A `window::Settings` object, configured with the specified size, icon, and other properties such as transparency, decorations, and blur.
-    /// The settings also include platform-specific configuration for Linux to set the application ID.
-    /// This function centralizes the window configuration to ensure consistency across different windows in the application.
-    fn make_window_settings(size: (f32, f32), icon: window::icon::Icon) -> window::Settings {
-        window::Settings {
-            size: Size::new(size.0, size.1),
-            resizable: true,
-            position: Position::Centered,
-            transparent: true,
-            decorations: true,
-            blur: true,
-            icon: Some(icon),
-            #[cfg(target_os = "linux")]
-            platform_specific: PlatformSpecific {
-                application_id: "com.codedead.compressr".to_string(),
-                ..PlatformSpecific::default()
-            },
-            ..window::Settings::default()
-        }
-    }
-
     /// Returns the active [`Theme`] from settings.
     ///
     /// # Returns
@@ -672,27 +518,30 @@ impl App {
     /// Opens a window of `kind` unless one is already open.
     /// Positions the new window relative to the last existing window.
     ///
+    /// The window's title and size are derived from `kind` via
+    /// [`WindowKind::title`] and [`WindowKind::default_size`].
+    ///
     /// # Arguments
     ///
     /// * `kind` - The `WindowKind` representing the type of window to open (e.g., Settings, About, Error).
-    /// * `title` - The title to display in the window's title bar.
-    /// * `size` - A tuple specifying the width and height of the window in pixels.
     ///
     /// # Returns
     ///
-    /// A `Task<Message>` that, when executed, will open a new window of the specified kind with the given title and size, positioned relative to the last existing window.
+    /// A `Task<Message>` that, when executed, will open a new window of the specified kind, positioned relative to the last existing window.
     /// If a window of the specified kind is already open, the function returns a no-op task that does nothing when executed
-    fn open_window(&self, kind: WindowKind, title: String, size: (f32, f32)) -> Task<Message> {
+    fn open_window(&self, kind: WindowKind) -> Task<Message> {
         let Some(last) = self.windows.keys().last() else {
             return Task::none();
         };
         if self.windows.values().any(|w| w.kind == kind) {
             return Task::none();
         }
+        let title = kind.title(self.state.current_language());
+        let size = kind.default_size();
         let icon = self.icon.clone();
         window::position(*last)
             .then(move |_| {
-                let (_, open) = window::open(Self::make_window_settings(size, icon.clone()));
+                let (_, open) = window::open(make_window_settings(size, icon.clone()));
                 open
             })
             .map(move |id| Message::ViewOpened(title.clone(), kind, id))
@@ -745,7 +594,7 @@ impl App {
     ///
     /// # Arguments
     ///
-    /// - `msg` - The error message to store.
+    /// * `msg` - The error message to store.
     fn set_error(&mut self, msg: impl Into<String>) {
         self.state.last_error_message = Some(msg.into());
     }
@@ -754,7 +603,7 @@ impl App {
     ///
     /// # Arguments
     ///
-    /// - `msg` - The error message to store.
+    /// * `msg` - The error message to store.
     ///
     /// # Returns
     ///
@@ -790,6 +639,52 @@ impl App {
         }
     }
 
+    /// Builds a batched [`Task`] that compresses every input file off the GUI thread.
+    ///
+    /// Output paths are pre-resolved and de-duplicated up front via
+    /// [`ImageService::resolve_unique_output_paths`], then each file is compressed in its own
+    /// `spawn_blocking` task. Results are reported back through [`Message::SingleFileCompressed`].
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - The input file paths to compress.
+    /// * `params` - The compression parameters shared across the batch.
+    ///
+    /// # Returns
+    ///
+    /// A `Task<Message>` batching one compression task per input file.
+    fn spawn_compression_tasks(
+        &self,
+        input: Vec<String>,
+        params: CompressionParams,
+    ) -> Task<Message> {
+        let resolved_paths = self
+            .image_service
+            .resolve_unique_output_paths(&input, &params);
+
+        let tasks: Vec<Task<Message>> = input
+            .into_iter()
+            .zip(resolved_paths)
+            .map(|(file, out_path)| {
+                let svc = self.image_service.clone();
+                let mut p = params.clone();
+                let cancelled = Arc::clone(&self.state.compression_aborted);
+                p.output_path_override = Some(out_path);
+                Task::perform(
+                    tokio::task::spawn_blocking(move || svc.compress_single(file, &p, cancelled)),
+                    |result| match result {
+                        Ok(r) => Message::SingleFileCompressed(r),
+                        Err(e) => Message::SingleFileCompressed(Err(format!(
+                            "Compression task failed: {e}"
+                        ))),
+                    },
+                )
+            })
+            .collect();
+
+        Task::batch(tasks)
+    }
+
     /// Handles the post-compression completion: error display, original file deletion, and results view.
     ///
     /// # Returns
@@ -811,8 +706,7 @@ impl App {
         }
 
         if self.state.settings.show_compression_results {
-            let title = self.state.current_language().compressr_results.clone();
-            self.open_window(WindowKind::Results, title, (600.0, 400.0))
+            self.open_window(WindowKind::Results)
         } else {
             Task::none()
         }
@@ -853,11 +747,9 @@ impl App {
     /// which can be used by the application to determine how to respond to the update check results (e.g., whether to display a "No Update" view).
     fn spawn_update_check(&self, show_no_update_view: bool) -> Task<Message> {
         let semver = env!("CARGO_PKG_VERSION").to_string();
-        let platform = std::env::consts::OS.to_string();
-        let arch = Self::arch().to_string();
         let svc = self.update_service.clone();
         Task::perform(
-            async move { svc.check_for_updates(semver, platform, arch).await },
+            async move { svc.check_for_updates(semver).await },
             move |result| Message::UpdateCheckCompleted {
                 result,
                 show_no_update_view,

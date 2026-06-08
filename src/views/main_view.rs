@@ -1,4 +1,5 @@
 pub(crate) use crate::components::app::Message;
+use crate::components::header::get_header_with_actions;
 use crate::components::state::State;
 use crate::services::image_service::OutputFormat;
 use iced::widget::{Image, progress_bar};
@@ -31,48 +32,51 @@ pub fn view(state: &State) -> Element<'_, Message> {
 
     let current_language = state.current_language();
 
-    let mut text_input_path = text_input("", &state.input_path.join(", "));
-    let mut text_output_path = text_input("", &state.output_path);
+    // Controls are interactive only while idle. iced disables widgets whose
+    // handlers are omitted, so we attach `on_*` callbacks conditionally rather
+    // than constructing separate enabled/disabled variants.
+    let enabled = !state.is_compressing;
+    let quality_enabled =
+        enabled && (state.format == OutputFormat::Jpeg || state.format == OutputFormat::WebP);
 
-    let mut dropdown_trigger =
-        button(row![text(current_language.browse.as_str()), text(" \u{25BE}"),].spacing(2));
-    let mut browse_output_button = button(current_language.browse.as_str());
+    let text_input_path = text_input("", &state.input_path.join(", "))
+        .on_input_maybe(enabled.then_some(|_| Message::ToggleInputDropdown));
+    let text_output_path = text_input("", &state.output_path)
+        .on_input_maybe(enabled.then_some(|_| Message::SelectOutput));
 
-    let mut quality_slider =
-        if state.format == OutputFormat::Jpeg || state.format == OutputFormat::WebP {
-            slider(1..=100, state.quality, |_| Message::Noop)
-        } else {
-            slider(1..=100, 100, |_| Message::Noop)
-        };
-    let mut scale_slider = slider(1..=100, state.scale, |_| Message::Noop);
+    let dropdown_trigger =
+        button(row![text(current_language.browse.as_str()), text(" \u{25BE}"),].spacing(2))
+            .on_press_maybe(enabled.then_some(Message::ToggleInputDropdown));
+    let browse_output_button = button(current_language.browse.as_str())
+        .on_press_maybe(enabled.then_some(Message::SelectOutput));
 
-    let mut format_pick_list = pick_list(&OutputFormat::ALL[..], Some(state.format), |_| {
-        Message::Noop
-    });
+    // Sliders require an on-change handler at construction, so the disabled
+    // variant maps to a no-op while the displayed value stays meaningful.
+    let quality_slider = if quality_enabled {
+        slider(1..=100, state.quality, Message::QualityChanged)
+    } else {
+        slider(1..=100, state.quality, |_| Message::Noop)
+    };
+    let scale_slider = if enabled {
+        slider(1..=100, state.scale, Message::CompressionScaleChanged)
+    } else {
+        slider(1..=100, state.scale, |_| Message::Noop)
+    };
 
-    let mut compress_button = button(current_language.compress.as_str());
-
-    if !state.is_compressing {
-        text_input_path = text_input_path.on_input(|_| Message::ToggleInputDropdown);
-        dropdown_trigger = dropdown_trigger.on_press(Message::ToggleInputDropdown);
-
-        text_output_path = text_output_path.on_input(|_| Message::SelectOutput);
-        browse_output_button = browse_output_button.on_press(Message::SelectOutput);
-
-        if state.format == OutputFormat::Jpeg || state.format == OutputFormat::WebP {
-            quality_slider = slider(1..=100, state.quality, Message::QualityChanged);
-        }
-
-        scale_slider = slider(1..=100, state.scale, Message::CompressionScaleChanged);
-
-        format_pick_list = pick_list(
+    let format_pick_list = if enabled {
+        pick_list(
             &OutputFormat::ALL[..],
             Some(state.format),
             Message::FormatSelected,
-        );
+        )
+    } else {
+        pick_list(&OutputFormat::ALL[..], Some(state.format), |_| {
+            Message::Noop
+        })
+    };
 
-        compress_button = compress_button.on_press(Message::Compress);
-    }
+    let compress_button = button(current_language.compress.as_str())
+        .on_press_maybe(enabled.then_some(Message::Compress));
 
     let settings_image: Image = if dark_icons {
         Image::new(state.main_view_icons.settings_dark.clone())
@@ -85,41 +89,25 @@ pub fn view(state: &State) -> Element<'_, Message> {
         Image::new(state.main_view_icons.info.clone())
     };
 
-    let header = iced::widget::column![row![
-        container(iced::widget::column![row![
-            text("Compressr")
-                .size(20)
-                .width(Length::Shrink)
-                .color(color!(255, 255, 255)),
-            space::horizontal().width(Length::Fill),
+    let header = get_header_with_actions(
+        "Compressr".to_string(),
+        color!(48, 48, 48, 0.8),
+        vec![
             button(settings_image.width(28).height(28))
                 .style(button::subtle)
                 .width(Length::Shrink)
                 .height(Length::Shrink)
-                .on_press(Message::OpenSettings),
-            space::horizontal().width(Length::Fixed(8.0)),
+                .on_press(Message::OpenSettings)
+                .into(),
+            space::horizontal().width(Length::Fixed(8.0)).into(),
             button(info_image.width(28).height(28))
                 .style(button::subtle)
                 .width(Length::Shrink)
                 .height(Length::Shrink)
-                .on_press(Message::OpenAbout),
-        ]])
-        .center_y(Length::Fill)
-        .width(Length::Fill)
-        .height(50)
-        .padding(10)
-        .style(|_| container::Style {
-            text_color: Default::default(),
-            background: Some(iced::Background::Color(color!(48, 48, 48, 0.8))),
-            border: Default::default(),
-            shadow: iced::Shadow {
-                color: color!(0, 0, 0, 0.2),
-                offset: iced::Vector::new(0.0, 2.0),
-                blur_radius: 5.0,
-            },
-            snap: false,
-        })
-    ]];
+                .on_press(Message::OpenAbout)
+                .into(),
+        ],
+    );
 
     let dropdown_overlay = container(
         column![
@@ -146,25 +134,23 @@ pub fn view(state: &State) -> Element<'_, Message> {
     let width = state.width.unwrap_or(0) as i32;
     let height = state.height.unwrap_or(0) as i32;
 
-    let width_input = if state.is_compressing {
-        number_input(&width, 0..=i32::MAX, |_| Message::Noop)
-            .width(Length::Fill)
-            .step(1)
-    } else {
+    // `number_input` requires an on-change handler at construction (for its
+    // spinner buttons), so the disabled variant maps to a no-op like the sliders.
+    let width_input = if enabled {
         number_input(&width, 0..=i32::MAX, Message::WidthChanged)
-            .width(Length::Fill)
-            .step(1)
-    };
-
-    let height_input = if state.is_compressing {
-        number_input(&height, 0..=i32::MAX, |_| Message::Noop)
-            .width(Length::Fill)
-            .step(1)
     } else {
+        number_input(&width, 0..=i32::MAX, |_| Message::Noop)
+    }
+    .width(Length::Fill)
+    .step(1);
+
+    let height_input = if enabled {
         number_input(&height, 0..=i32::MAX, Message::HeightChanged)
-            .width(Length::Fill)
-            .step(1)
-    };
+    } else {
+        number_input(&height, 0..=i32::MAX, |_| Message::Noop)
+    }
+    .width(Length::Fill)
+    .step(1);
 
     let content = iced::widget::column![
         row![

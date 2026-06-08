@@ -39,21 +39,23 @@ impl UpdateService {
 
     /// Checks for updates by fetching version information from the update server and comparing it with the current version.
     ///
+    /// The current platform (`std::env::consts::OS`) and architecture (`std::env::consts::ARCH`) are
+    /// resolved internally and matched against the platform-specific download entries.
+    ///
     /// # Arguments
     ///
     /// * `current_semver` - The current version of the application in semantic versioning format.
-    /// * `platform` - The platform of the application (e.g., "windows", "macos", "linux").
-    /// * `arch` - The architecture of the application (e.g., "x64", "aarch64").
     ///
     /// # Returns
     ///
-    /// Ok(Some(UpdateInfo)) if an update is available for the specified platform and architecture, Ok(None) if no update is available, or an error if the update check fails.
+    /// Ok(Some(UpdateInfo)) if an update is available for the current platform and architecture, Ok(None) if no update is available, or an error if the update check fails.
     pub async fn check_for_updates(
         &self,
         current_semver: String,
-        platform: String,
-        arch: String,
     ) -> Result<Option<UpdateInfo>, String> {
+        let platform = std::env::consts::OS;
+        let arch = std::env::consts::ARCH;
+
         let response = self
             .client
             .get(&self.update_server)
