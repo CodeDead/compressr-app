@@ -7,13 +7,13 @@ pub(crate) const IMAGE_EXTENSIONS: &[&str] =
 /// Scans a folder to find image files based on a predefined set of valid image extensions.
 ///
 /// # Arguments
-/// - `folder`: A `PathBuf` representing the folder to scan.
-/// - `recursive`: A `bool` indicating whether the scan should include subdirectories recursively.
+/// * `folder`: A `PathBuf` representing the folder to scan.
+/// * `recursive`: A `bool` indicating whether the scan should include subdirectories recursively.
 ///
 /// # Returns
-/// - `Ok(Vec<String>)`: A vector of file paths (as strings) pointing to image files found
+/// * `Ok(Vec<String>)`: A vector of file paths (as strings) pointing to image files found
 ///   in the folder (and subdirectories, if `recursive` is `true`).
-/// - `Err(String)`: An error message indicating why the scan could not be completed. This could
+/// * `Err(String)`: An error message indicating why the scan could not be completed. This could
 ///   include issues such as failure to read a folder, access directory entries, or fetch metadata
 ///   for entries.
 pub fn scan_folder(folder: PathBuf, recursive: bool) -> Result<Vec<String>, String> {

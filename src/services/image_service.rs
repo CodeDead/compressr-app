@@ -164,7 +164,11 @@ impl ImageService {
 
         let original_size = raw.len() as u64;
 
-        let source_exif = self.read_exif(&raw, params.preserve_exif);
+        let source_exif = if params.preserve_exif {
+            self.read_exif(&raw)
+        } else {
+            None
+        };
         let img = image::load_from_memory(&raw)
             .map_err(|e| format!("Failed to load image '{file}': {e}"))?;
 
@@ -216,7 +220,7 @@ impl ImageService {
         })
     }
 
-    /// Reads EXIF bytes from the raw file bytes if `preserve` is `true`.
+    /// Reads EXIF bytes from the raw file bytes.
     ///
     /// Uses `image::guess_format` (magic bytes) to detect the image format
     /// first, so the buffer is cloned at most once and only the correct parser
@@ -224,17 +228,12 @@ impl ImageService {
     ///
     /// # Arguments
     ///
-    /// - `bytes`: The raw file bytes of the source image.
-    /// - `preserve`: Whether to attempt reading EXIF data.
+    /// * `bytes`: The raw file bytes of the source image.
     ///
     /// # Returns
     ///
     /// An `Option` containing the EXIF bytes if successfully read and preserved, or `None` otherwise.
-    fn read_exif(&self, bytes: &[u8], preserve: bool) -> Option<img_parts::Bytes> {
-        if !preserve {
-            return None;
-        }
-
+    fn read_exif(&self, bytes: &[u8]) -> Option<img_parts::Bytes> {
         let format = image::guess_format(bytes).ok()?;
         match format {
             ImageFormat::Jpeg => {
@@ -263,8 +262,8 @@ impl ImageService {
     ///
     /// # Arguments
     ///
-    /// - `img`: The original image to be transformed.
-    /// - `params`: The compression parameters containing scaling and dimension info.
+    /// * `img`: The original image to be transformed.
+    /// * `params`: The compression parameters containing scaling and dimension info.
     ///
     /// # Returns
     ///
@@ -298,7 +297,7 @@ impl ImageService {
     ///
     /// # Arguments
     ///
-    /// - `img`: The `DynamicImage` from which to extract pixel data.
+    /// * `img`: The `DynamicImage` from which to extract pixel data.
     ///
     /// # Returns
     ///
@@ -322,8 +321,8 @@ impl ImageService {
     ///
     /// # Arguments
     ///
-    /// - `file`: The original source file path.
-    /// - `params`: The compression parameters containing output path info.
+    /// * `file`: The original source file path.
+    /// * `params`: The compression parameters containing output path info.
     ///
     /// # Returns
     ///
@@ -346,12 +345,72 @@ impl ImageService {
         }
     }
 
+    /// Resolves output paths for a batch of input files, disambiguating any collisions.
+    ///
+    /// Each input is mapped through [`resolve_output_path`](Self::resolve_output_path). When two
+    /// inputs would resolve to the same output path, subsequent paths gain a numeric suffix
+    /// (`name_2.ext`, `name_3.ext`, ...) so no file is silently overwritten by another item in
+    /// the same batch.
+    ///
+    /// # Arguments
+    ///
+    /// * `files`: The input file paths to resolve.
+    /// * `params`: The compression parameters used to derive each output path.
+    ///
+    /// # Returns
+    ///
+    /// A vector of resolved, collision-free output paths, parallel to `files`.
+    pub fn resolve_unique_output_paths(
+        &self,
+        files: &[String],
+        params: &CompressionParams,
+    ) -> Vec<String> {
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        files
+            .iter()
+            .map(|file| {
+                let candidate = self.resolve_output_path(file, params);
+                if seen.insert(candidate.clone()) {
+                    return candidate;
+                }
+
+                let path = Path::new(&candidate);
+                let ext = path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or_default()
+                    .to_owned();
+                let stem = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("output")
+                    .to_owned();
+                let mut n: u32 = 2;
+                loop {
+                    let new_name = if ext.is_empty() {
+                        format!("{}_{}", stem, n)
+                    } else {
+                        format!("{}_{}.{}", stem, n, ext)
+                    };
+                    let disambiguated = path
+                        .with_file_name(&new_name)
+                        .to_string_lossy()
+                        .into_owned();
+                    if seen.insert(disambiguated.clone()) {
+                        break disambiguated;
+                    }
+                    n += 1;
+                }
+            })
+            .collect()
+    }
+
     /// Encodes `img` into a heap-allocated byte buffer in the requested format.
     ///
     /// # Arguments
     ///
-    /// - `img`: The image to be encoded.
-    /// - `params`: The compression parameters containing format and quality info.
+    /// * `img`: The image to be encoded.
+    /// * `params`: The compression parameters containing format and quality info.
     ///
     /// # Returns
     ///
@@ -413,9 +472,9 @@ impl ImageService {
     ///
     /// # Arguments
     ///
-    /// - `bytes`: The encoded image bytes to inject EXIF into.
-    /// - `exif`: The EXIF bytes to inject.
-    /// - `format`: The output format of the image, used to determine how to inject EXIF.
+    /// * `bytes`: The encoded image bytes to inject EXIF into.
+    /// * `exif`: The EXIF bytes to inject.
+    /// * `format`: The output format of the image, used to determine how to inject EXIF.
     ///
     /// # Returns
     ///
@@ -426,47 +485,29 @@ impl ImageService {
         exif: img_parts::Bytes,
         format: OutputFormat,
     ) -> Result<Vec<u8>, String> {
-        // Early-return for formats that img-parts cannot inject EXIF into.
-        match format {
-            OutputFormat::Gif | OutputFormat::Bmp | OutputFormat::Tiff => return Ok(bytes),
-            _ => {}
+        // The img-parts container types (Jpeg/Png/WebP) don't share a trait, but
+        // they expose the same `from_bytes`/`set_exif`/`encoder().write_to` shape,
+        // so a macro collapses the otherwise-identical arms.
+        macro_rules! inject {
+            ($ty:path, $label:literal, $bytes:expr) => {{
+                let mut container = <$ty>::from_bytes($bytes)
+                    .map_err(|e| format!(concat!("Failed to parse output ", $label, ": {}"), e))?;
+                container.set_exif(Some(exif));
+                let mut buf = Vec::new();
+                container
+                    .encoder()
+                    .write_to(&mut buf)
+                    .map_err(|e| format!(concat!("Failed to write EXIF to ", $label, ": {}"), e))?;
+                Ok(buf)
+            }};
         }
 
-        let b: img_parts::Bytes = bytes.into();
-
         match format {
-            OutputFormat::Jpeg => {
-                let mut jpeg = img_parts::jpeg::Jpeg::from_bytes(b)
-                    .map_err(|e| format!("Failed to parse output JPEG: {e}"))?;
-                jpeg.set_exif(Some(exif));
-                let mut buf = Vec::new();
-                jpeg.encoder()
-                    .write_to(&mut buf)
-                    .map_err(|e| format!("Failed to write EXIF to JPEG: {e}"))?;
-                Ok(buf)
-            }
-            OutputFormat::Png => {
-                let mut png = img_parts::png::Png::from_bytes(b)
-                    .map_err(|e| format!("Failed to parse output PNG: {e}"))?;
-                png.set_exif(Some(exif));
-                let mut buf = Vec::new();
-                png.encoder()
-                    .write_to(&mut buf)
-                    .map_err(|e| format!("Failed to write EXIF to PNG: {e}"))?;
-                Ok(buf)
-            }
-            OutputFormat::WebP => {
-                let mut webp = img_parts::webp::WebP::from_bytes(b)
-                    .map_err(|e| format!("Failed to parse output WebP: {e}"))?;
-                webp.set_exif(Some(exif));
-                let mut buf = Vec::new();
-                webp.encoder()
-                    .write_to(&mut buf)
-                    .map_err(|e| format!("Failed to write EXIF to WebP: {e}"))?;
-                Ok(buf)
-            }
-            // GIF/BMP/TIFF already returned above; this arm satisfies exhaustiveness.
-            _ => Ok(b.to_vec()),
+            // GIF/BMP/TIFF cannot carry EXIF via img-parts; return bytes untouched.
+            OutputFormat::Gif | OutputFormat::Bmp | OutputFormat::Tiff => Ok(bytes),
+            OutputFormat::Jpeg => inject!(img_parts::jpeg::Jpeg, "JPEG", bytes.into()),
+            OutputFormat::Png => inject!(img_parts::png::Png, "PNG", bytes.into()),
+            OutputFormat::WebP => inject!(img_parts::webp::WebP, "WebP", bytes.into()),
         }
     }
 }
