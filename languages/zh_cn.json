@@ -44,5 +44,10 @@
   "compressedSize": "压缩后",
   "saved": "节省",
   "filesTotal": "共 {count} 个文件",
-  "compressingProgress": "压缩中 ({completed}/{total})"
+  "compressingProgress": "压缩中 ({completed}/{total})",
+  "errorNoInputFiles": "未选择输入文件。请至少选择一个文件。",
+  "errorNoOutputDirectory": "未选择输出目录。请选择输出目录。",
+  "errorOutputPathIsFile": "输出路径是文件而不是目录。请选择目录。",
+  "errorOutputDirectoryNotFound": "输出目录 '{path}' 不存在。",
+  "errorDeleteOriginalFailed": "删除原始文件 '{file}' 失败：{error}"
 }

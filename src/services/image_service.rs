@@ -7,7 +7,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ImageService;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,6 +95,35 @@ impl CompressionResult {
     }
 }
 
+/// Error type for a single image compression operation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CompressionError {
+    /// The operation was cancelled before completion.
+    Aborted,
+    /// The operation failed with a message describing the failure.
+    Failed(String),
+}
+
+impl std::fmt::Display for CompressionError {
+    /// Formats the `CompressionError` as a human-readable string.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A mutable reference to a `Formatter` where the formatted string will be written.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating whether the formatting was successful or if an error occurred.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Aborted => write!(f, "Compression aborted"),
+            Self::Failed(msg) => write!(f, "{msg}"),
+        }
+    }
+}
+
+impl std::error::Error for CompressionError {}
+
 /// Parameters for a single image compression operation.
 #[derive(Debug, Clone)]
 pub struct CompressionParams {
@@ -133,33 +162,39 @@ impl ImageService {
     ///
     /// # Errors
     ///
-    /// Returns an error string if the image cannot be loaded, encoded, or saved.
+    /// Returns [`CompressionError::Aborted`] if the operation was cancelled, or
+    /// [`CompressionError::Failed`] if the image cannot be loaded, encoded, or saved.
     pub fn compress_single(
         &self,
         file: String,
         params: &CompressionParams,
         cancelled: Arc<AtomicBool>,
-    ) -> Result<CompressionResult, String> {
+    ) -> Result<CompressionResult, CompressionError> {
         if cancelled.load(Ordering::Relaxed) {
-            return Err("COMPRESSION_ABORTED".to_string());
+            return Err(CompressionError::Aborted);
         }
 
         // Validate explicit dimensions before doing any I/O.
         if let Some(w) = params.width
             && w == 0
         {
-            return Err("Width cannot be equal to 0".to_string());
+            return Err(CompressionError::Failed(
+                "Width cannot be equal to 0".to_string(),
+            ));
         }
         if let Some(h) = params.height
             && h == 0
         {
-            return Err("Height cannot be equal to 0".to_string());
+            return Err(CompressionError::Failed(
+                "Height cannot be equal to 0".to_string(),
+            ));
         }
 
-        let raw = fs::read(&file).map_err(|e| format!("Failed to read '{file}': {e}"))?;
+        let raw = fs::read(&file)
+            .map_err(|e| CompressionError::Failed(format!("Failed to read '{file}': {e}")))?;
 
         if cancelled.load(Ordering::Relaxed) {
-            return Err("COMPRESSION_ABORTED".to_string());
+            return Err(CompressionError::Aborted);
         }
 
         let original_size = raw.len() as u64;
@@ -170,10 +205,10 @@ impl ImageService {
             None
         };
         let img = image::load_from_memory(&raw)
-            .map_err(|e| format!("Failed to load image '{file}': {e}"))?;
+            .map_err(|e| CompressionError::Failed(format!("Failed to load image '{file}': {e}")))?;
 
         if cancelled.load(Ordering::Relaxed) {
-            return Err("COMPRESSION_ABORTED".to_string());
+            return Err(CompressionError::Aborted);
         }
 
         let img = self.apply_geometry(img, params);
@@ -182,7 +217,7 @@ impl ImageService {
         let encoded = self.encode(&img, params)?;
 
         if cancelled.load(Ordering::Relaxed) {
-            return Err("COMPRESSION_ABORTED".to_string());
+            return Err(CompressionError::Aborted);
         }
 
         // Optionally, inject EXIF into the in-memory buffer before the single
@@ -201,11 +236,11 @@ impl ImageService {
             .unwrap_or_else(|| self.resolve_output_path(&file, params));
 
         if cancelled.load(Ordering::Relaxed) {
-            return Err("COMPRESSION_ABORTED".to_string());
+            return Err(CompressionError::Aborted);
         }
 
         fs::write(&output_path, final_bytes)
-            .map_err(|e| format!("Failed to write output file: {e}"))?;
+            .map_err(|e| CompressionError::Failed(format!("Failed to write output file: {e}")))?;
 
         let file_name = Path::new(&file)
             .file_name()
@@ -414,8 +449,12 @@ impl ImageService {
     ///
     /// # Returns
     ///
-    /// A `Result` containing the encoded image bytes on success, or an error string on failure.
-    fn encode(&self, img: &DynamicImage, params: &CompressionParams) -> Result<Vec<u8>, String> {
+    /// A `Result` containing the encoded image bytes on success, or a [`CompressionError`] on failure.
+    fn encode(
+        &self,
+        img: &DynamicImage,
+        params: &CompressionParams,
+    ) -> Result<Vec<u8>, CompressionError> {
         let mut cursor = Cursor::new(Vec::new());
 
         match params.format {
@@ -424,11 +463,12 @@ impl ImageService {
                     image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, params.quality);
                 encoder
                     .encode_image(img)
-                    .map_err(|e| format!("Failed to encode JPEG: {e}"))?;
+                    .map_err(|e| CompressionError::Failed(format!("Failed to encode JPEG: {e}")))?;
             }
             OutputFormat::WebP => {
-                let encoder = webp::Encoder::from_image(img)
-                    .map_err(|e| format!("Failed to create WebP encoder: {e}"))?;
+                let encoder = webp::Encoder::from_image(img).map_err(|e| {
+                    CompressionError::Failed(format!("Failed to create WebP encoder: {e}"))
+                })?;
 
                 let webp_memory = if params.quality == 100 {
                     encoder.encode_lossless()
@@ -440,25 +480,25 @@ impl ImageService {
             }
             OutputFormat::Png => {
                 img.write_to(&mut cursor, ImageFormat::Png)
-                    .map_err(|e| format!("Failed to encode PNG: {e}"))?;
+                    .map_err(|e| CompressionError::Failed(format!("Failed to encode PNG: {e}")))?;
             }
             OutputFormat::Gif => {
                 img.write_to(&mut cursor, ImageFormat::Gif)
-                    .map_err(|e| format!("Failed to encode GIF: {e}"))?;
+                    .map_err(|e| CompressionError::Failed(format!("Failed to encode GIF: {e}")))?;
             }
             OutputFormat::Bmp => {
                 let mut encoder = image::codecs::bmp::BmpEncoder::new(&mut cursor);
                 let (bytes, color_type) = self.pixel_data_slice(img);
                 encoder
                     .encode(&bytes, img.width(), img.height(), color_type)
-                    .map_err(|e| format!("Failed to encode BMP: {e}"))?;
+                    .map_err(|e| CompressionError::Failed(format!("Failed to encode BMP: {e}")))?;
             }
             OutputFormat::Tiff => {
                 let encoder = image::codecs::tiff::TiffEncoder::new(&mut cursor);
                 let (bytes, color_type) = self.pixel_data_slice(img);
                 encoder
                     .write_image(&bytes, img.width(), img.height(), color_type)
-                    .map_err(|e| format!("Failed to write TIFF: {e}"))?;
+                    .map_err(|e| CompressionError::Failed(format!("Failed to write TIFF: {e}")))?;
             }
         }
 
@@ -478,26 +518,32 @@ impl ImageService {
     ///
     /// # Returns
     ///
-    /// A `Result` containing the new image bytes with EXIF injected on success, or an error string on failure.
+    /// A `Result` containing the new image bytes with EXIF injected on success, or a [`CompressionError`] on failure.
     fn inject_exif(
         &self,
         bytes: Vec<u8>,
         exif: img_parts::Bytes,
         format: OutputFormat,
-    ) -> Result<Vec<u8>, String> {
+    ) -> Result<Vec<u8>, CompressionError> {
         // The img-parts container types (Jpeg/Png/WebP) don't share a trait, but
         // they expose the same `from_bytes`/`set_exif`/`encoder().write_to` shape,
         // so a macro collapses the otherwise-identical arms.
         macro_rules! inject {
             ($ty:path, $label:literal, $bytes:expr) => {{
-                let mut container = <$ty>::from_bytes($bytes)
-                    .map_err(|e| format!(concat!("Failed to parse output ", $label, ": {}"), e))?;
+                let mut container = <$ty>::from_bytes($bytes).map_err(|e| {
+                    CompressionError::Failed(format!(
+                        concat!("Failed to parse output ", $label, ": {}"),
+                        e
+                    ))
+                })?;
                 container.set_exif(Some(exif));
                 let mut buf = Vec::new();
-                container
-                    .encoder()
-                    .write_to(&mut buf)
-                    .map_err(|e| format!(concat!("Failed to write EXIF to ", $label, ": {}"), e))?;
+                container.encoder().write_to(&mut buf).map_err(|e| {
+                    CompressionError::Failed(format!(
+                        concat!("Failed to write EXIF to ", $label, ": {}"),
+                        e
+                    ))
+                })?;
                 Ok(buf)
             }};
         }

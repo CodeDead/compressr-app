@@ -1,8 +1,8 @@
 use crate::components::app::Message;
-use crate::components::header::get_header;
+use crate::components::header::{HEADER_BG_ERROR, get_header};
 use crate::components::state::State;
-use iced::widget::{button, container, row, space, text};
-use iced::{Element, Length, color};
+use iced::widget::{button, container, row, scrollable, space, text};
+use iced::{Element, Length};
 
 /// Builds the error view of the application, informing users about error messages
 ///
@@ -23,14 +23,12 @@ pub fn view(state: &State) -> Element<'_, Message> {
         .to_string();
     let has_error_to_copy = state.last_error_message.is_some();
 
-    let header = get_header(
-        current_language.compressr_error.clone(),
-        color!(175, 0, 0, 0.8),
-    );
+    let header = get_header(current_language.compressr_error.clone(), HEADER_BG_ERROR);
 
+    // The message area is scrollable so long (multi-error) texts stay readable
+    // while the action buttons remain pinned at the bottom.
     let content = iced::widget::column![
-        row![text(last_error_message)],
-        row![space::vertical(),],
+        scrollable(row![text(last_error_message)]).height(Length::Fill),
         row![
             has_error_to_copy.then(|| {
                 button(current_language.copy.as_str())
@@ -51,6 +49,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
 
     container(together)
         .width(Length::Fill)
+        .height(Length::Fill)
         .center_x(Length::Fill)
         .into()
 }

@@ -44,5 +44,10 @@
   "compressedSize": "Gecomprimeerd",
   "saved": "Bespaard",
   "filesTotal": "{count} bestand(en) totaal",
-  "compressingProgress": "Comprimeren ({completed}/{total})"
+  "compressingProgress": "Comprimeren ({completed}/{total})",
+  "errorNoInputFiles": "Geen invoerbestanden geselecteerd. Selecteer ten minste één bestand.",
+  "errorNoOutputDirectory": "Geen uitvoermap geselecteerd. Selecteer een uitvoermap.",
+  "errorOutputPathIsFile": "Het uitvoerpad is een bestand, geen map. Selecteer een map.",
+  "errorOutputDirectoryNotFound": "De uitvoermap '{path}' bestaat niet.",
+  "errorDeleteOriginalFailed": "Kan origineel bestand '{file}' niet verwijderen: {error}"
 }

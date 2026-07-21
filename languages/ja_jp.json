@@ -44,5 +44,10 @@
   "compressedSize": "圧縮後",
   "saved": "節約",
   "filesTotal": "合計 {count} ファイル",
-  "compressingProgress": "圧縮中 ({completed}/{total})"
+  "compressingProgress": "圧縮中 ({completed}/{total})",
+  "errorNoInputFiles": "入力ファイルが選択されていません。少なくとも1つのファイルを選択してください。",
+  "errorNoOutputDirectory": "出力ディレクトリが選択されていません。出力ディレクトリを選択してください。",
+  "errorOutputPathIsFile": "出力パスはディレクトリではなくファイルです。ディレクトリを選択してください。",
+  "errorOutputDirectoryNotFound": "出力ディレクトリ '{path}' は存在しません。",
+  "errorDeleteOriginalFailed": "元のファイル '{file}' の削除に失敗しました: {error}"
 }

@@ -1,10 +1,10 @@
 pub(crate) use crate::components::app::Message;
-use crate::components::header::get_header_with_actions;
+use crate::components::header::{HEADER_BG, get_header_with_actions};
 use crate::components::state::State;
 use crate::services::image_service::OutputFormat;
 use iced::widget::{Image, progress_bar};
 use iced::widget::{button, column, container, pick_list, row, slider, space, text, text_input};
-use iced::{Element, Length, Theme, color};
+use iced::{Element, Length, Theme};
 use iced_aw::{DropDown, drop_down, number_input};
 
 /// Builds the main view of the application, displaying the current state and providing controls for user interaction.
@@ -40,7 +40,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
         enabled && (state.format == OutputFormat::Jpeg || state.format == OutputFormat::WebP);
 
     let text_input_path = text_input("", &state.input_path.join(", "))
-        .on_input_maybe(enabled.then_some(|_| Message::ToggleInputDropdown));
+        .on_input_maybe(enabled.then_some(|_| Message::OpenInputDropdown));
     let text_output_path = text_input("", &state.output_path)
         .on_input_maybe(enabled.then_some(|_| Message::SelectOutput));
 
@@ -91,7 +91,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
 
     let header = get_header_with_actions(
         "Compressr".to_string(),
-        color!(48, 48, 48, 0.8),
+        HEADER_BG,
         vec![
             button(settings_image.width(28).height(28))
                 .style(button::subtle)

@@ -47,4 +47,4 @@ jobs:
         run: cargo test --verbose --all
 
       - name: Clippy
-        run: cargo clippy --verbose --all
+        run: cargo clippy --verbose --all -- -D warnings

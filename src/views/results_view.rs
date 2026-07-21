@@ -1,5 +1,5 @@
 use crate::components::app::Message;
-use crate::components::header::get_header;
+use crate::components::header::{HEADER_BG, get_header};
 use crate::components::state::State;
 use iced::widget::{button, column, container, row, scrollable, space, text};
 use iced::{Element, Length, color};
@@ -47,7 +47,7 @@ fn divider<'a>() -> Element<'a, Message> {
 pub fn view(state: &State) -> Element<'_, Message> {
     let lang = state.current_language();
 
-    let header = get_header(lang.compressr_results.clone(), color!(48, 48, 48, 0.8));
+    let header = get_header(lang.compressr_results.clone(), HEADER_BG);
 
     let results = &state.compression_results;
 

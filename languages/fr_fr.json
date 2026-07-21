@@ -44,5 +44,10 @@
   "compressedSize": "Compressé",
   "saved": "Économisé",
   "filesTotal": "{count} fichier(s) au total",
-  "compressingProgress": "Compression ({completed}/{total})"
+  "compressingProgress": "Compression ({completed}/{total})",
+  "errorNoInputFiles": "Aucun fichier d'entrée sélectionné. Veuillez sélectionner au moins un fichier.",
+  "errorNoOutputDirectory": "Aucun répertoire de sortie sélectionné. Veuillez sélectionner un répertoire de sortie.",
+  "errorOutputPathIsFile": "Le chemin de sortie est un fichier, pas un répertoire. Veuillez sélectionner un répertoire.",
+  "errorOutputDirectoryNotFound": "Le répertoire de sortie '{path}' n'existe pas.",
+  "errorDeleteOriginalFailed": "Échec de la suppression du fichier original '{file}' : {error}"
 }

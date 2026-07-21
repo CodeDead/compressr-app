@@ -55,6 +55,7 @@ fn deserialize_theme<'de, D: Deserializer<'de>>(d: D) -> Result<Theme, D::Error>
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(default)]
 pub struct Settings {
     pub auto_update: bool,
     pub update_server: String,
