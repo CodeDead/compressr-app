@@ -1,8 +1,8 @@
 use crate::components::app::Message;
-use crate::components::header::get_header;
+use crate::components::header::{HEADER_BG, get_header};
 use crate::components::state::State;
 use iced::widget::{button, checkbox, container, pick_list, row, space, text};
-use iced::{Element, Length, Theme, color};
+use iced::{Element, Length, Theme};
 
 /// Builds the settings view of the application, allowing users to adjust preferences such as auto-update, file deletion after compression, and theme selection.
 ///
@@ -16,10 +16,7 @@ use iced::{Element, Length, Theme, color};
 pub fn view(state: &State) -> Element<'_, Message> {
     let current_language = state.current_language();
 
-    let header = get_header(
-        current_language.compressr_settings.clone(),
-        color!(48, 48, 48, 0.8),
-    );
+    let header = get_header(current_language.compressr_settings.clone(), HEADER_BG);
 
     let content = iced::widget::column![
         row![

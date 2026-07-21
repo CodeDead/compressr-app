@@ -1,8 +1,8 @@
 use crate::components::app::Message;
-use crate::components::header::get_header;
+use crate::components::header::{HEADER_BG, get_header};
 use crate::components::state::State;
 use iced::widget::{button, container, row, space, text};
-use iced::{Element, Length, color};
+use iced::{Element, Length};
 
 /// Builds the update view of the application, informing users about available updates and providing options to download or learn more about the new version.
 ///
@@ -16,10 +16,7 @@ use iced::{Element, Length, color};
 pub fn view(state: &State) -> Element<'_, Message> {
     let current_language = state.current_language();
 
-    let header = get_header(
-        current_language.compressr_update.clone(),
-        color!(48, 48, 48, 0.8),
-    );
+    let header = get_header(current_language.compressr_update.clone(), HEADER_BG);
 
     let new_version = state.update_version.clone().unwrap_or_default();
     let mut download_button = button(current_language.download.as_str())

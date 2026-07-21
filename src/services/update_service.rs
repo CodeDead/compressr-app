@@ -1,10 +1,11 @@
 use crate::models::version::Version;
+use log::error;
 use std::time::Duration;
 
 #[derive(Clone)]
 pub struct UpdateService {
     update_server: String,
-    client: reqwest::Client,
+    client: Option<reqwest::Client>,
 }
 
 #[derive(Debug, Clone)]
@@ -17,6 +18,10 @@ pub struct UpdateInfo {
 impl UpdateService {
     /// Initialize a new UpdateService
     ///
+    /// If the HTTP client cannot be built (e.g. TLS backend initialisation failure),
+    /// the service is still constructed with `client` set to `None`; update checks
+    /// will then fail gracefully with an error instead of panicking.
+    ///
     /// # Arguments
     ///
     /// * `update_server` - The URL of the update server to check for updates.
@@ -25,11 +30,17 @@ impl UpdateService {
     ///
     /// A new instance of UpdateService
     pub fn new(update_server: String) -> Self {
-        let client = reqwest::Client::builder()
+        let client = match reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(5))
             .timeout(Duration::from_secs(10))
             .build()
-            .expect("Failed to create update HTTP client");
+        {
+            Ok(client) => Some(client),
+            Err(e) => {
+                error!("Failed to create update HTTP client: {e}");
+                None
+            }
+        };
 
         Self {
             update_server,
@@ -56,8 +67,13 @@ impl UpdateService {
         let platform = std::env::consts::OS;
         let arch = std::env::consts::ARCH;
 
-        let response = self
-            .client
+        let Some(client) = &self.client else {
+            return Err(
+                "HTTP client is unavailable; cannot check for updates at this time".to_string(),
+            );
+        };
+
+        let response = client
             .get(&self.update_server)
             .send()
             .await

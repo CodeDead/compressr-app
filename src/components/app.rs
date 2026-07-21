@@ -3,7 +3,7 @@ use crate::components::window::{Window, WindowKind, load_app_icon, make_window_s
 use crate::services;
 use crate::services::folder_scanner::{IMAGE_EXTENSIONS, scan_folder};
 use crate::services::image_service::{
-    CompressionParams, CompressionResult, ImageService, OutputFormat,
+    CompressionError, CompressionParams, CompressionResult, ImageService, OutputFormat,
 };
 use crate::services::update_service::{UpdateInfo, UpdateService};
 use iced::widget::space;
@@ -14,6 +14,10 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
+/// Maximum number of per-file compression errors kept for display in the error
+/// view. Every failure is always logged; this only caps the accumulated string.
+const MAX_DISPLAYED_ERRORS: usize = 10;
+
 #[derive(Debug, Clone)]
 pub enum Message {
     MainViewOpened(window::Id),
@@ -23,9 +27,10 @@ pub enum Message {
     SelectOutput,
     SelectInputFolder,
     ToggleInputDropdown,
+    OpenInputDropdown,
     DismissInputDropdown,
     Compress,
-    SingleFileCompressed(Result<CompressionResult, String>),
+    SingleFileCompressed(Result<CompressionResult, CompressionError>),
     CloseResultsView,
     InputFolderScanCompleted(Vec<String>),
     InputFolderScanFailed(String),
@@ -141,19 +146,6 @@ impl App {
     /// The theme of the window, or None if no such window exists.
     pub fn theme(&self, window: window::Id) -> Option<Theme> {
         Some(self.windows.get(&window)?.theme.clone())
-    }
-
-    /// Returns the current scale factor of the window with the given ID, or 1.0 if no such window exists.
-    ///
-    /// # Arguments
-    ///
-    /// * `window` - The ID of the window whose scale factor is to be retrieved.
-    ///
-    /// # Returns
-    ///
-    /// The current scale factor of the window, or 1.0 if no such window exists.
-    pub fn scale_factor(&self, _window: window::Id) -> f32 {
-        1.0
     }
 
     /// Subscribes to window close events and maps them to `Message::WindowClosed`.
@@ -319,6 +311,12 @@ impl App {
                 self.state.show_input_dropdown = !self.state.show_input_dropdown;
                 Task::none()
             }
+            Message::OpenInputDropdown => {
+                // Idempotent open: typing in the input field should not toggle
+                // the dropdown shut again on every other keystroke.
+                self.state.show_input_dropdown = true;
+                Task::none()
+            }
             Message::DismissInputDropdown => {
                 self.state.show_input_dropdown = false;
                 Task::none()
@@ -330,14 +328,26 @@ impl App {
                 self.state.progress_completed += 1;
                 match result {
                     Ok(r) => self.state.compression_results.push(r),
-                    Err(e) => {
+                    Err(CompressionError::Aborted) => {
+                        // The cancellation flag raced with task completion;
+                        // nothing to report.
+                    }
+                    Err(CompressionError::Failed(e)) => {
                         error!("Compression error: {e}");
-                        let msg = if let Some(ref existing) = self.state.last_error_message {
-                            format!("{existing}\n{e}")
-                        } else {
-                            e
-                        };
-                        self.set_error(msg);
+                        let displayed = self
+                            .state
+                            .last_error_message
+                            .as_ref()
+                            .map(|m| m.lines().count())
+                            .unwrap_or(0);
+                        if displayed < MAX_DISPLAYED_ERRORS {
+                            let msg = if let Some(ref existing) = self.state.last_error_message {
+                                format!("{existing}\n{e}")
+                            } else {
+                                e
+                            };
+                            self.set_error(msg);
+                        }
                     }
                 }
 
@@ -349,9 +359,6 @@ impl App {
             }
             Message::FormatSelected(f) => {
                 self.state.format = f;
-                if f != OutputFormat::Jpeg && f != OutputFormat::WebP {
-                    self.state.quality = 100;
-                }
                 Task::none()
             }
             Message::QualityChanged(q) => {
@@ -413,7 +420,13 @@ impl App {
                     .language_key
                     .clone();
                 self.state.settings.language_key = key;
-                self.handle_settings_save_result(self.state.settings.save())
+                let task = self.handle_settings_save_result(self.state.settings.save());
+                // Retitle already-open windows so the language change applies
+                // immediately instead of on next open.
+                for w in self.windows.values_mut() {
+                    w.title = w.kind.title(self.state.current_language());
+                }
+                task
             }
             Message::OpenSettings => self.open_window(WindowKind::Settings),
             Message::OpenAbout => self.open_window(WindowKind::About),
@@ -615,27 +628,25 @@ impl App {
 
     /// Validates that compression inputs are present and the output directory exists.
     ///
+    /// Error messages are taken from the active language.
+    ///
     /// # Returns
     ///
     /// A result indicating whether the inputs are valid or an error message.
     fn validate_compression_inputs(&self) -> Result<(), String> {
+        let lang = self.state.current_language();
         if self.state.input_path.is_empty() {
-            return Err("No input files selected. Please select at least one file.".to_string());
+            return Err(lang.error_no_input_files.clone());
         }
         if self.state.output_path.is_empty() {
-            return Err(
-                "No output directory selected. Please select an output directory.".to_string(),
-            );
+            return Err(lang.error_no_output_directory.clone());
         }
         match std::fs::metadata(&self.state.output_path) {
             Ok(m) if m.is_dir() => Ok(()),
-            Ok(_) => Err(
-                "Output path is a file, not a directory. Please select a directory.".to_string(),
-            ),
-            Err(_) => Err(format!(
-                "Output directory '{}' does not exist.",
-                self.state.output_path
-            )),
+            Ok(_) => Err(lang.error_output_path_is_file.clone()),
+            Err(_) => Err(lang
+                .error_output_directory_not_found
+                .replace("{path}", &self.state.output_path)),
         }
     }
 
@@ -674,8 +685,8 @@ impl App {
                     tokio::task::spawn_blocking(move || svc.compress_single(file, &p, cancelled)),
                     |result| match result {
                         Ok(r) => Message::SingleFileCompressed(r),
-                        Err(e) => Message::SingleFileCompressed(Err(format!(
-                            "Compression task failed: {e}"
+                        Err(e) => Message::SingleFileCompressed(Err(CompressionError::Failed(
+                            format!("Compression task failed: {e}"),
                         ))),
                     },
                 )
@@ -700,7 +711,13 @@ impl App {
             for file in &self.state.input_path {
                 if let Err(e) = std::fs::remove_file(file) {
                     error!("Failed to delete original file '{file}': {e}");
-                    return self.error(format!("Failed to delete original file '{file}': {e}"));
+                    let msg = self
+                        .state
+                        .current_language()
+                        .error_delete_original_failed
+                        .replace("{file}", file)
+                        .replace("{error}", &e.to_string());
+                    return self.error(msg);
                 }
             }
         }

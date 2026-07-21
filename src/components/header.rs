@@ -2,6 +2,12 @@ use crate::components::app::Message;
 use iced::widget::{Column, Row, container, row, space, text};
 use iced::{Color, Element, Length, color};
 
+/// Background color shared by all standard window headers.
+pub const HEADER_BG: Color = color!(48, 48, 48, 0.8);
+
+/// Background color used by the error window header.
+pub const HEADER_BG_ERROR: Color = color!(175, 0, 0, 0.8);
+
 /// Retrieve a header component for the application.
 ///
 /// # Arguments

@@ -1,8 +1,8 @@
 use crate::components::app::Message;
-use crate::components::header::get_header;
+use crate::components::header::{HEADER_BG, get_header};
 use crate::components::state::State;
 use iced::widget::{button, container, row, space, text};
-use iced::{Element, Length, color};
+use iced::{Element, Length};
 
 /// Builds the about view of the application, informing users about the application.
 ///
@@ -14,10 +14,7 @@ pub fn view(state: &State) -> Element<'_, Message> {
 
     let current_semver = env!("CARGO_PKG_VERSION").to_string();
 
-    let header = get_header(
-        current_language.compressr_about.clone(),
-        color!(48, 48, 48, 0.8),
-    );
+    let header = get_header(current_language.compressr_about.clone(), HEADER_BG);
 
     let content = iced::widget::column![
         row![text(

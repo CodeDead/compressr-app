@@ -44,5 +44,10 @@
   "compressedSize": "Compressed",
   "saved": "Saved",
   "filesTotal": "{count} file(s) total",
-  "compressingProgress": "Compressing ({completed}/{total})"
+  "compressingProgress": "Compressing ({completed}/{total})",
+  "errorNoInputFiles": "No input files selected. Please select at least one file.",
+  "errorNoOutputDirectory": "No output directory selected. Please select an output directory.",
+  "errorOutputPathIsFile": "The output path is a file, not a directory. Please select a directory.",
+  "errorOutputDirectoryNotFound": "The output directory '{path}' does not exist.",
+  "errorDeleteOriginalFailed": "Failed to delete original file '{file}': {error}"
 }

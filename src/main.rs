@@ -22,6 +22,5 @@ fn main() -> iced::Result {
         .subscription(App::subscription)
         .title(App::title)
         .theme(App::theme)
-        .scale_factor(App::scale_factor)
         .run()
 }

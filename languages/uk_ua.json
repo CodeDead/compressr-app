@@ -44,5 +44,10 @@
   "compressedSize": "Стиснутий",
   "saved": "Збережено",
   "filesTotal": "Усього {count} файл(ів)",
-  "compressingProgress": "Стиснення ({completed}/{total})"
+  "compressingProgress": "Стиснення ({completed}/{total})",
+  "errorNoInputFiles": "Не вибрано вхідні файли. Будь ласка, виберіть принаймні один файл.",
+  "errorNoOutputDirectory": "Не вибрано вихідну теку. Будь ласка, виберіть вихідну теку.",
+  "errorOutputPathIsFile": "Шлях виведення є файлом, а не текою. Будь ласка, виберіть теку.",
+  "errorOutputDirectoryNotFound": "Вихідна тека '{path}' не існує.",
+  "errorDeleteOriginalFailed": "Не вдалося видалити оригінальний файл '{file}': {error}"
 }

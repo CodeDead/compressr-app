@@ -74,4 +74,14 @@ pub struct Language {
     pub files_total: String,
     #[serde(rename = "compressingProgress")]
     pub compressing_progress: String,
+    #[serde(rename = "errorNoInputFiles")]
+    pub error_no_input_files: String,
+    #[serde(rename = "errorNoOutputDirectory")]
+    pub error_no_output_directory: String,
+    #[serde(rename = "errorOutputPathIsFile")]
+    pub error_output_path_is_file: String,
+    #[serde(rename = "errorOutputDirectoryNotFound")]
+    pub error_output_directory_not_found: String,
+    #[serde(rename = "errorDeleteOriginalFailed")]
+    pub error_delete_original_failed: String,
 }

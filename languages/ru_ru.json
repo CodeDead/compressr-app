@@ -44,5 +44,10 @@
   "compressedSize": "Сжатый",
   "saved": "Сохранено",
   "filesTotal": "Всего {count} файл(ов)",
-  "compressingProgress": "Сжатие ({completed}/{total})"
+  "compressingProgress": "Сжатие ({completed}/{total})",
+  "errorNoInputFiles": "Не выбраны входные файлы. Пожалуйста, выберите хотя бы один файл.",
+  "errorNoOutputDirectory": "Не выбрана выходная папка. Пожалуйста, выберите выходную папку.",
+  "errorOutputPathIsFile": "Путь вывода является файлом, а не папкой. Пожалуйста, выберите папку.",
+  "errorOutputDirectoryNotFound": "Выходная папка '{path}' не существует.",
+  "errorDeleteOriginalFailed": "Не удалось удалить оригинальный файл '{file}': {error}"
 }

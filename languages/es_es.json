@@ -44,5 +44,10 @@
   "compressedSize": "Comprimido",
   "saved": "Ahorrado",
   "filesTotal": "{count} archivo(s) en total",
-  "compressingProgress": "Comprimiendo ({completed}/{total})"
+  "compressingProgress": "Comprimiendo ({completed}/{total})",
+  "errorNoInputFiles": "No se ha seleccionado ningún archivo de entrada. Seleccione al menos un archivo.",
+  "errorNoOutputDirectory": "No se ha seleccionado ningún directorio de salida. Seleccione un directorio de salida.",
+  "errorOutputPathIsFile": "La ruta de salida es un archivo, no un directorio. Seleccione un directorio.",
+  "errorOutputDirectoryNotFound": "El directorio de salida '{path}' no existe.",
+  "errorDeleteOriginalFailed": "No se pudo eliminar el archivo original '{file}': {error}"
 }

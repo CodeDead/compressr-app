@@ -1,8 +1,23 @@
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub(crate) const IMAGE_EXTENSIONS: &[&str] =
     &["png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff", "tif"];
+
+/// Returns `true` when `path` has a supported image extension (case-insensitive).
+///
+/// # Arguments
+///
+/// * `path` - The path whose extension is checked.
+///
+/// # Returns
+///
+/// `true` if the extension matches one of [`IMAGE_EXTENSIONS`], `false` otherwise.
+fn is_image_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|ext| IMAGE_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
+}
 
 /// Scans a folder to find image files based on a predefined set of valid image extensions.
 ///
@@ -21,8 +36,11 @@ pub fn scan_folder(folder: PathBuf, recursive: bool) -> Result<Vec<String>, Stri
     let mut files: Vec<String> = Vec::new();
 
     if recursive {
-        let mut dirs: Vec<PathBuf> = vec![folder];
+        let mut dirs: Vec<PathBuf> = vec![folder.clone()];
+        // Seed with the root itself so a symlinked subdirectory pointing back
+        // to the root cannot cause it to be scanned a second time.
         let mut visited: HashSet<PathBuf> = HashSet::new();
+        visited.insert(folder.canonicalize().unwrap_or_else(|_| folder.clone()));
 
         while let Some(dir) = dirs.pop() {
             match std::fs::read_dir(&dir) {
@@ -53,10 +71,7 @@ pub fn scan_folder(folder: PathBuf, recursive: bool) -> Result<Vec<String>, Stri
                             if visited.insert(canonical) {
                                 dirs.push(path);
                             }
-                        } else if metadata.is_file()
-                            && let Some(ext) = path.extension().and_then(|e| e.to_str())
-                            && IMAGE_EXTENSIONS.contains(&ext.to_lowercase().as_str())
-                        {
+                        } else if metadata.is_file() && is_image_file(&path) {
                             files.push(path.to_string_lossy().into_owned());
                         }
                     }
@@ -78,13 +93,7 @@ pub fn scan_folder(folder: PathBuf, recursive: bool) -> Result<Vec<String>, Stri
                         Ok(e) => e,
                     };
                     let path = entry.path();
-                    if !path.is_file() {
-                        continue;
-                    }
-                    if let Some(ext) = path.extension()
-                        && let Some(ext_str) = ext.to_str()
-                        && IMAGE_EXTENSIONS.contains(&ext_str.to_lowercase().as_str())
-                    {
+                    if path.is_file() && is_image_file(&path) {
                         files.push(path.to_string_lossy().into_owned());
                     }
                 }
