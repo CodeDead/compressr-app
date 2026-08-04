@@ -483,6 +483,20 @@ impl ImageService {
                     .map_err(|e| CompressionError::Failed(format!("Failed to encode PNG: {e}")))?;
             }
             OutputFormat::Gif => {
+                // The GIF encoder only accepts Rgb8/Rgba8 pixels; normalize
+                // grayscale and 16-bit images first.
+                let normalized;
+                let img = match img {
+                    DynamicImage::ImageRgb8(_) | DynamicImage::ImageRgba8(_) => img,
+                    DynamicImage::ImageLuma8(_) | DynamicImage::ImageLuma16(_) => {
+                        normalized = DynamicImage::ImageRgb8(img.to_rgb8());
+                        &normalized
+                    }
+                    _ => {
+                        normalized = DynamicImage::ImageRgba8(img.to_rgba8());
+                        &normalized
+                    }
+                };
                 img.write_to(&mut cursor, ImageFormat::Gif)
                     .map_err(|e| CompressionError::Failed(format!("Failed to encode GIF: {e}")))?;
             }

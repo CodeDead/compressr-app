@@ -9,8 +9,9 @@ use crate::services::update_service::{UpdateInfo, UpdateService};
 use iced::widget::space;
 use iced::{Element, Subscription, Task, Theme, clipboard, window};
 use log::{error, info};
-use rfd::FileDialog;
+use rfd::AsyncFileDialog;
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
@@ -26,6 +27,10 @@ pub enum Message {
     SelectInput,
     SelectOutput,
     SelectInputFolder,
+    InputFilesSelected(Vec<String>),
+    OutputFolderSelected(String),
+    InputFolderSelected(PathBuf),
+    FileDialogDismissed,
     ToggleInputDropdown,
     OpenInputDropdown,
     DismissInputDropdown,
@@ -241,35 +246,81 @@ impl App {
             }
             Message::SelectInput => {
                 self.state.show_input_dropdown = false;
-                if let Some(paths) = FileDialog::new()
-                    .add_filter("Image files", IMAGE_EXTENSIONS)
-                    .pick_files()
-                {
-                    self.state.input_path = paths.iter().map(|p| p.display().to_string()).collect();
+                if self.state.dialog_open {
+                    return Task::none();
                 }
+                self.state.dialog_open = true;
+                Task::perform(
+                    async {
+                        AsyncFileDialog::new()
+                            .add_filter("Image files", IMAGE_EXTENSIONS)
+                            .pick_files()
+                            .await
+                    },
+                    |paths| match paths {
+                        Some(paths) => Message::InputFilesSelected(
+                            paths
+                                .iter()
+                                .map(|p| p.path().display().to_string())
+                                .collect(),
+                        ),
+                        None => Message::FileDialogDismissed,
+                    },
+                )
+            }
+            Message::InputFilesSelected(paths) => {
+                self.state.dialog_open = false;
+                self.state.input_path = paths;
                 Task::none()
             }
             Message::SelectOutput => {
-                if let Some(path) = FileDialog::new().pick_folder() {
-                    self.state.output_path = path.display().to_string();
+                if self.state.dialog_open {
+                    return Task::none();
                 }
+                self.state.dialog_open = true;
+                Task::perform(
+                    async { AsyncFileDialog::new().pick_folder().await },
+                    |folder| match folder {
+                        Some(f) => Message::OutputFolderSelected(f.path().display().to_string()),
+                        None => Message::FileDialogDismissed,
+                    },
+                )
+            }
+            Message::OutputFolderSelected(path) => {
+                self.state.dialog_open = false;
+                self.state.output_path = path;
                 Task::none()
             }
             Message::SelectInputFolder => {
                 self.state.show_input_dropdown = false;
-                if let Some(folder) = FileDialog::new().pick_folder() {
-                    let recursive = self.state.settings.recursive_folder_scan;
-                    return Task::perform(
-                        tokio::task::spawn_blocking(move || scan_folder(folder, recursive)),
-                        |result| match result {
-                            Ok(Ok(files)) => Message::InputFolderScanCompleted(files),
-                            Ok(Err(e)) => Message::InputFolderScanFailed(e),
-                            Err(e) => Message::InputFolderScanFailed(format!(
-                                "Folder scan task failed: {e}"
-                            )),
-                        },
-                    );
+                if self.state.dialog_open {
+                    return Task::none();
                 }
+                self.state.dialog_open = true;
+                Task::perform(
+                    async { AsyncFileDialog::new().pick_folder().await },
+                    |folder| match folder {
+                        Some(f) => Message::InputFolderSelected(f.path().to_path_buf()),
+                        None => Message::FileDialogDismissed,
+                    },
+                )
+            }
+            Message::InputFolderSelected(folder) => {
+                self.state.dialog_open = false;
+                let recursive = self.state.settings.recursive_folder_scan;
+                Task::perform(
+                    tokio::task::spawn_blocking(move || scan_folder(folder, recursive)),
+                    |result| match result {
+                        Ok(Ok(files)) => Message::InputFolderScanCompleted(files),
+                        Ok(Err(e)) => Message::InputFolderScanFailed(e),
+                        Err(e) => {
+                            Message::InputFolderScanFailed(format!("Folder scan task failed: {e}"))
+                        }
+                    },
+                )
+            }
+            Message::FileDialogDismissed => {
+                self.state.dialog_open = false;
                 Task::none()
             }
             Message::InputFolderScanCompleted(files) => {
