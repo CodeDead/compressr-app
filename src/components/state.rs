@@ -80,6 +80,7 @@ impl State {
             load_lang(include_bytes!("../../languages/es_es.json"), "es_ES"),
             load_lang(include_bytes!("../../languages/pt_pt.json"), "pt_PT"),
             load_lang(include_bytes!("../../languages/ja_jp.json"), "ja_JP"),
+            load_lang(include_bytes!("../../languages/hi_in.json"), "hi_IN"),
         ];
         let main_view_icons = MainViewIcons {
             settings: image::Handle::from_bytes(
